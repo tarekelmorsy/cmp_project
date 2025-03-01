@@ -10,7 +10,6 @@ class CreateAccountScreen extends StatefulWidget {
   @override
   State<CreateAccountScreen> createState() => _CreateAccountScreenState();
 }
-const double verticalSpacing = 16.0;
 
 class _CreateAccountScreenState extends State<CreateAccountScreen> {
   // Controllers
@@ -22,9 +21,10 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   final TextEditingController _confirmPassController = TextEditingController();
   final TextEditingController _birthdateController = TextEditingController();
   final TextEditingController _specializationController = TextEditingController();
-  int _selectedYear = 1;
 
-  String? userType; // 'student' or 'teacher' ...الخ
+  int _selectedYear = 1; // Dropdown for student's year
+
+  String? userType; // 'student' or 'doctor', etc.
 
   @override
   void didChangeDependencies() {
@@ -38,16 +38,17 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // No AppBar here, just a SafeArea with scroll
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // عنوان الشاشة
+              // Screen title
               Center(
                 child: Text(
-                  'إنشاء حساب جديد',
+                  'Create New Account',
                   style: TextStyle(
                     fontSize: 20,
                     color: Theme.of(context).primaryColor,
@@ -56,155 +57,150 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              Center(
-                child: const Text(
-                  'subTitle',
+              // SubTitle
+              const Center(
+                child: Text(
+                  'Subtitle',
                   style: TextStyle(color: Colors.grey, fontSize: 14),
                 ),
               ),
               const SizedBox(height: 24),
 
-              _buildLabel('الاسم  '),
+              _buildLabel('Name'),
               TextField(
                 controller: _firstNameController,
                 decoration: const InputDecoration(
-                  hintText: 'الاسم',
+                  hintText: 'Enter your name',
                 ),
               ),
               const SizedBox(height: 16),
- _buildLabel('الاميل   '),
+
+              _buildLabel('Email'),
               TextField(
                 controller: _emailController,
                 decoration: const InputDecoration(
-                  hintText: 'الاميل',
+                  hintText: 'Enter your email',
                 ),
               ),
               const SizedBox(height: 16),
 
-              // كود الطالب
+              // Student Code (if userType == student)
               if (userType == null || userType == 'student') ...[
-                _buildLabel('كود الطالب'),
+                _buildLabel('Student Code'),
                 TextField(
                   controller: _studentCodeController,
                   decoration: const InputDecoration(
-                    hintText: 'كود الطالب',
+                    hintText: 'Enter your student code',
                   ),
                 ),
-                // const SizedBox(height: 16),
               ],
-              // عرض الحقول حسب النوع
+
+              // If userType == student => show Year dropdown
               if (userType == 'student') ...[
-
-                const SizedBox(height: verticalSpacing),
-
-                // الفرقة (من الأولى للرابعة)
-                _buildLabel('الفرقة:  '),
+                const SizedBox(height: 16),
+                _buildLabel('Year'),
                 Container(
+                  width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    // border: Border.all(color: Theme.of(context).primaryColor),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Row(
-                    children: [
-                       DropdownButton<int>(
-
-                        value: _selectedYear,
-                        items: const [
-                          DropdownMenuItem(child: Text('الأولى'), value: 1),
-                          DropdownMenuItem(child: Text('الثانية'), value: 2),
-                          DropdownMenuItem(child: Text('الثالثة'), value: 3),
-                          DropdownMenuItem(child: Text('الرابعة'), value: 4),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedYear = value ?? 1;
-                          });
-                        },
-                      ),
+                  child: DropdownButton<int>(
+                    value: _selectedYear,
+                    items: const [
+                      DropdownMenuItem(child: Text('Year 1'), value: 1),
+                      DropdownMenuItem(child: Text('Year 2'), value: 2),
+                      DropdownMenuItem(child: Text('Year 3'), value: 3),
+                      DropdownMenuItem(child: Text('Year 4'), value: 4),
                     ],
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedYear = value ?? 1;
+                      });
+                    },
                   ),
                 ),
-                const SizedBox(height: verticalSpacing),
               ] else ...[
-                // حقل التخصص للدكتور
-                _buildLabel('التخصص'),
+                // Otherwise, it's doctor => Specialization
+                const SizedBox(height: 16),
+                _buildLabel('Specialization'),
                 TextField(
-                  controller: _passwordController,
-                  obscureText: true,
+                  controller: _specializationController,
                   decoration: const InputDecoration(
-                    hintText: 'أدخل التخصص',
+                    hintText: 'Enter your specialization',
                   ),
                 ),
-                const SizedBox(height: 16.0),
               ],
-              // كلمة المرور
-              _buildLabel('كلمة المرور'),
+
+              const SizedBox(height: 16),
+
+              // Password
+              _buildLabel('Password'),
               TextField(
                 controller: _passwordController,
                 obscureText: true,
                 decoration: const InputDecoration(
-                  hintText: 'أدخل كلمة المرور',
+                  hintText: 'Enter your password',
                 ),
               ),
               const SizedBox(height: 16),
 
-              // // تأكيد كلمة المرور
-              // _buildLabel('تأكيد كلمة المرور'),
+              // If you want to re-enable Confirm Password:
+              // _buildLabel('Confirm Password'),
               // TextField(
               //   controller: _confirmPassController,
               //   obscureText: true,
               //   decoration: const InputDecoration(
-              //     hintText: 'أعد كتابة كلمة المرور',
+              //     hintText: 'Re-enter your password',
               //   ),
               // ),
               // const SizedBox(height: 24),
-
-              // الأزرار السفلية (السابق – التالي)
-
             ],
           ),
         ),
       ),
-      bottomNavigationBar:     Padding(
+
+      // Bottom bar with Next/Previous buttons
+      bottomNavigationBar: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               children: [
+                // Previous
                 Expanded(
-                  child: Container(
-                    // color: Colors.red,
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        side: BorderSide(
-                            color: Theme.of(context).primaryColor, width: 1),
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                      child: const Text('السابق'),
+                      side: BorderSide(
+                        color: Theme.of(context).primaryColor,
+                        width: 1,
+                      ),
                     ),
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: const Text('Previous'),
                   ),
                 ),
                 const SizedBox(width: 8),
+
+                // Next
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
                       Navigator.pushNamed(
                         context,
                         HomeScreen.routeName,
-                        arguments: 'studendt',
+                        arguments: userType,
                       );
-                      // منطق التحقق أو الانتقال للخطوة التالية
                     },
-                    child: const Text('التالي'),
+                    child: const Text('Next'),
                   ),
                 ),
               ],
@@ -216,6 +212,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     );
   }
 
+  /// Helper to build a text label
   Widget _buildLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),

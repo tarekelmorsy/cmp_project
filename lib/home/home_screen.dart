@@ -1,5 +1,10 @@
+import 'package:cmp/home/absence_screen.dart';
+import 'package:cmp/home/attendance_history_screen.dart';
 import 'package:cmp/home/chat_screen.dart';
+import 'package:cmp/home/payment_screen.dart';
 import 'package:flutter/material.dart';
+
+import 'grades_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   static const String routeName = '/home';
@@ -7,7 +12,7 @@ class HomeScreen extends StatefulWidget {
 
   const HomeScreen({
     Key? key,
-   }) : super(key: key);
+  }) : super(key: key);
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -63,7 +68,6 @@ class _HomeScreenState extends State<HomeScreen> {
         icon: Icon(Icons.checklist_rounded),
         label: 'Attendance',
       ),
-
       const BottomNavigationBarItem(
         icon: Icon(Icons.attach_money_outlined),
         label: 'Fees',
@@ -72,6 +76,14 @@ class _HomeScreenState extends State<HomeScreen> {
         icon: Icon(Icons.chat_outlined),
         label: 'Chat',
       ),
+      const BottomNavigationBarItem(
+        icon: Icon(Icons.school_outlined),
+        label: 'Grades',
+      ), const BottomNavigationBarItem(
+        icon: Icon(Icons.account_balance_sharp),
+        label: 'Absence',
+      ),
+
     ]
         : [
       const BottomNavigationBarItem(
@@ -101,6 +113,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ), // We'll decide content based on _currentIndex
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
+         unselectedItemColor: Colors.grey,
+         selectedItemColor: Colors.black,
         items: bottomItems,
         onTap: (index) {
           setState(() {
@@ -113,15 +127,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// This method decides which page to show based on the current tab.
   Widget _buildBody() {
-     switch (_currentIndex) {
+    switch (_currentIndex) {
       case 0:
       // ATTENDANCE PAGE => show attendance UI + button for Student OR Doctor
         return _buildAttendanceTab();
       case 1:
-        return const Center(child: Text('Chat Page'));
+        if(userType == 'student') {
+          return PaymentScreen( );
+        }else {
+          return AttendanceHistoryScreen();
+        }
       case 2: // Only Student has 3rd tab (Fees)
         return   OneSidedChatScreen(userType:userType ??'',);
-        // return const Center(child: Text('Fees Page'));
+      case 3: // Only Student has 3rd tab (Fees)
+        return   GradesScreen();
+      case 4: // Only Student has 3rd tab (Fees)
+        return   AbsenceScreen();
+    // return const Center(child: Text('Fees Page'));
       default:
         return const Center(child: Text('Unknown Page'));
     }
