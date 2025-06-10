@@ -1,80 +1,172 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
+import '../services/api_service.dart';
+import '../models/models.dart';
 
-/// شاشة رئيسية تتصرف حسب نوع المستخدم.
-/// - الطالب (student): يعرض شات جاهز بالرسائل فقط، دون إمكانية إضافة رسائل.
-/// - الدكتور (doctor): يعرض أولًا 4 أزرار (سنوات)، وعند اختيار سنة، ينتقل إلى DoctorChatScreen لعرض/إضافة رسائل.
 class OneSidedChatScreen extends StatelessWidget {
   static const String routeName = '/one_sided_chat';
 
-  final String userType; // 'doctor' or 'student'
-  const OneSidedChatScreen({Key? key, required this.userType})
-      : super(key: key);
+  final String userType;
+  const OneSidedChatScreen({Key? key, required this.userType}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    // إذا طالب: انتقل مباشرة لعرض شات الطالب
     if (userType == 'student') {
       return _StudentChatScreen();
     } else {
-      // إذا دكتور: عرض اختيار السنة
       return _DoctorYearSelectionScreen();
     }
   }
 }
 
-/// ------------------------
-/// 1) شاشة الشات للطالب فقط
-/// الطالب لا يكتب رسائل؛ مجرد عرض رسائل بلون أزرق
-/// ------------------------
+/// شاشة الشات للطالب - يشاهد الرسائل فقط
 class _StudentChatScreen extends StatefulWidget {
   @override
   State<_StudentChatScreen> createState() => _StudentChatScreenState();
 }
 
 class _StudentChatScreenState extends State<_StudentChatScreen> {
-  // رسائل افتراضية، كلها من الدكتور - تظهر بلون واحد (سنعرضها وكأنها من جهة واحدة)
-  // ولكن طالب لا يمكنه الرد
-  List<String> messages = [
-    "Hello Student, welcome to the announcements!",
-    "Please check the new assignment posted.",
-    "We have an online lecture next week.",
-    "If you have questions, let me know in class!",
-  ];
+  final ApiService _apiService = ApiService();
+  List<ChatMessage> messages = [];
+  bool isLoading = true;
+  String? errorMessage;
+  String courseId = "1"; // Default course ID
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMessages();
+  }
+
+  Future<void> _loadMessages() async {
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+
+    try {
+      final result = await _apiService.getChatMessages(courseId);
+
+      if (result['success']) {
+        final List<dynamic> messagesData = result['data']['messages'] ?? [];
+        setState(() {
+          messages = messagesData.map((msg) => ChatMessage.fromJson(msg)).toList();
+        });
+      } else {
+        setState(() {
+          errorMessage = result['message'] ?? 'فشل في تحميل الرسائل';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        errorMessage = 'خطأ في تحميل الرسائل: $e';
+      });
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    const Color bubbleColor = Color(0xFF2D336B); // أزرق داكن
+    const Color bubbleColor = Color(0xFF2D336B);
     const Color backgroundColor = Color(0xFFF9F9F9);
 
     return SizedBox(
       height: 649,
       child: Scaffold(
         backgroundColor: backgroundColor,
-
         body: Column(
           children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).primaryColor,
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.chat, color: Colors.white),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'إعلانات المادة',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.refresh, color: Colors.white),
+                    onPressed: _loadMessages,
+                  ),
+                ],
+              ),
+            ),
+
+            // Messages
             Expanded(
-              child: ListView.builder(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : errorMessage != null
+                  ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error, size: 60, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Text(
+                      errorMessage!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _loadMessages,
+                      child: const Text('إعادة المحاولة'),
+                    ),
+                  ],
+                ),
+              )
+                  : messages.isEmpty
+                  ? const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.chat_bubble_outline, size: 60, color: Colors.grey),
+                    SizedBox(height: 16),
+                    Text(
+                      'لا توجد رسائل بعد',
+                      style: TextStyle(color: Colors.grey, fontSize: 16),
+                    ),
+                  ],
+                ),
+              )
+                  : ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 itemCount: messages.length,
                 itemBuilder: (context, index) {
-                  final text = messages[index];
-                  return _buildChatBubble(text, bubbleColor);
+                  final message = messages[index];
+                  return _buildChatBubble(message, bubbleColor);
                 },
               ),
             ),
-            // الطالب لا يكتب شيئًا => لا يوجد حقل إدخال
           ],
         ),
       ),
     );
   }
 
-  /// الفقاعة: لون واحد يمين/يسار. هنا سنضبط المحاذاة كيفما نريد (مثل اليسار).
-  Widget _buildChatBubble(String text, Color color) {
+  Widget _buildChatBubble(ChatMessage message, Color color) {
     return Container(
-      alignment: Alignment.centerLeft,
+      alignment: Alignment.centerRight,
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
@@ -83,26 +175,46 @@ class _StudentChatScreenState extends State<_StudentChatScreen> {
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(16),
             topRight: Radius.circular(16),
-            bottomRight: Radius.circular(16),
+            bottomLeft: Radius.circular(16),
           ),
         ),
-        constraints: const BoxConstraints(maxWidth: 250),
-        child: Text(
-          text,
-          style: const TextStyle(color: Colors.white),
+        constraints: const BoxConstraints(maxWidth: 280),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              message.message,
+              style: const TextStyle(color: Colors.white, fontSize: 15),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _formatTime(message.timestamp),
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ],
         ),
       ),
     );
   }
+
+  String _formatTime(DateTime timestamp) {
+    final now = DateTime.now();
+    final diff = now.difference(timestamp);
+
+    if (diff.inDays > 0) {
+      return '${diff.inDays} يوم';
+    } else if (diff.inHours > 0) {
+      return '${diff.inHours} ساعة';
+    } else if (diff.inMinutes > 0) {
+      return '${diff.inMinutes} دقيقة';
+    } else {
+      return 'الآن';
+    }
+  }
 }
 
-/// ----------------------------
-/// 2) شاشة اختيار السنة للدكتور
-/// إذا ضغط Year X => ينتقل إلى DoctorChatScreen(year: X)
-/// ----------------------------
+/// شاشة اختيار السنة للدكتور
 class _DoctorYearSelectionScreen extends StatelessWidget {
-  const _DoctorYearSelectionScreen({Key? key}) : super(key: key);
-
   @override
   Widget build(BuildContext context) {
     const Color backgroundColor = Color(0xFFF9F9F9);
@@ -111,24 +223,38 @@ class _DoctorYearSelectionScreen extends StatelessWidget {
       height: 649,
       child: Scaffold(
         backgroundColor: backgroundColor,
-
         body: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              const Text(
-                'Please choose which year chat you want to open:',
-                style: TextStyle(fontSize: 16),
+              // Header
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Text(
+                  'اختر السنة الدراسية للدردشة معها',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
               ),
-              const SizedBox(height: 24),
 
-              // أزرار السنوات الأربع
+              const SizedBox(height: 32),
+
+              // Year buttons
               _buildYearButton(context, 1),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               _buildYearButton(context, 2),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               _buildYearButton(context, 3),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               _buildYearButton(context, 4),
             ],
           ),
@@ -141,8 +267,13 @@ class _DoctorYearSelectionScreen extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
         onPressed: () {
-          // يفتح شاشة دردشة الدكتور مع تحديد السنة
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -150,18 +281,28 @@ class _DoctorYearSelectionScreen extends StatelessWidget {
             ),
           );
         },
-        child: Text('Year $year Chat'),
+        child: Text(
+          'السنة ${_getYearName(year)}',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }
+
+  String _getYearName(int year) {
+    switch (year) {
+      case 1: return 'الأولى';
+      case 2: return 'الثانية';
+      case 3: return 'الثالثة';
+      case 4: return 'الرابعة';
+      default: return '$year';
+    }
+  }
 }
 
-/// ------------------------------
-/// 3) شاشة دردشة الدكتور لسنة محددة
-/// يستطيع فيها إرسال رسائل، تظهر بلون أزرق واحد
-/// ------------------------------
+/// شاشة دردشة الدكتور لسنة محددة
 class DoctorChatScreen extends StatefulWidget {
-  final int year; // سنة المحادثة المختارة
+  final int year;
   const DoctorChatScreen({Key? key, required this.year}) : super(key: key);
 
   @override
@@ -170,59 +311,191 @@ class DoctorChatScreen extends StatefulWidget {
 
 class _DoctorChatScreenState extends State<DoctorChatScreen> {
   final TextEditingController _messageController = TextEditingController();
-
-  // رسائل افتراضية، كلها من الدكتور - يمكن توسيعها حسب السنة
-  List<String> messages = [];
+  final ApiService _apiService = ApiService();
+  List<ChatMessage> messages = [];
+  bool isLoading = true;
+  bool isSending = false;
+  String? errorMessage;
+  String courseId = "1"; // Default course ID
 
   @override
   void initState() {
     super.initState();
-    // مثال: وضع رسائل مختلفة حسب السنة
-    messages = [
-      "Hello Year ${widget.year} students!",
-      "This chat is for year ${widget.year} only.",
-      "Feel free to check updates here.",
-    ];
+    _loadMessages();
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadMessages() async {
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+
+    try {
+      final result = await _apiService.getChatMessages(courseId);
+
+      if (result['success']) {
+        final List<dynamic> messagesData = result['data']['messages'] ?? [];
+        setState(() {
+          messages = messagesData.map((msg) => ChatMessage.fromJson(msg)).toList();
+        });
+      } else {
+        setState(() {
+          errorMessage = result['message'] ?? 'فشل في تحميل الرسائل';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        errorMessage = 'خطأ في تحميل الرسائل: $e';
+      });
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _sendMessage() async {
+    final text = _messageController.text.trim();
+    if (text.isEmpty || isSending) return;
+
+    setState(() {
+      isSending = true;
+    });
+
+    try {
+      final result = await _apiService.sendChatMessage(courseId, text);
+
+      if (result['success']) {
+        _messageController.clear();
+
+        // Add message to local list for immediate UI update
+        final user = Provider.of<AuthProvider>(context, listen: false).currentUser!;
+        final newMessage = ChatMessage(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          courseId: courseId,
+          senderId: user.id,
+          senderName: user.name,
+          senderRole: user.role,
+          message: text,
+          timestamp: DateTime.now(),
+        );
+
+        setState(() {
+          messages.add(newMessage);
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تم إرسال الرسالة بنجاح'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'فشل في إرسال الرسالة'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('خطأ في إرسال الرسالة: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        isSending = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    const Color bubbleColor = Color(0xFF2D336B); // أزرق داكن
+    const Color bubbleColor = Color(0xFF2D336B);
     const Color backgroundColor = Color(0xFFF9F9F9);
 
-    return Container(
-      child: Scaffold(
-        backgroundColor: backgroundColor,
-        appBar: AppBar(
-          title: Text('Doctor Chat - Year ${widget.year}'),
-          centerTitle: true,
-        ),
-        body: Column(
-          children: [
-            // عرض الرسائل
-            Expanded(
-              child: ListView.builder(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                itemCount: messages.length,
-                itemBuilder: (context, index) {
-                  final text = messages[index];
-                  return _buildChatBubble(text, bubbleColor);
-                },
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      appBar: AppBar(
+        title: Text('دردشة السنة ${_getYearName(widget.year)}'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadMessages,
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Messages
+          Expanded(
+            child: isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : errorMessage != null
+                ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error, size: 60, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Text(
+                    errorMessage!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _loadMessages,
+                    child: const Text('إعادة المحاولة'),
+                  ),
+                ],
               ),
+            )
+                : messages.isEmpty
+                ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.chat_bubble_outline, size: 60, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text(
+                    'لا توجد رسائل بعد\nابدأ بكتابة رسالة للطلاب',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey, fontSize: 16),
+                  ),
+                ],
+              ),
+            )
+                : ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              itemCount: messages.length,
+              itemBuilder: (context, index) {
+                final message = messages[index];
+                return _buildChatBubble(message, bubbleColor);
+              },
             ),
+          ),
 
-            // حقل كتابة الرسالة (للدكتور)
-            _buildMessageInput(bubbleColor),
-          ],
-        ),
+          // Message input
+          _buildMessageInput(bubbleColor),
+        ],
       ),
     );
   }
 
-  Widget _buildChatBubble(String text, Color color) {
+  Widget _buildChatBubble(ChatMessage message, Color color) {
     return Container(
-      alignment: Alignment.centerLeft,
+      alignment: Alignment.centerRight,
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
@@ -231,13 +504,23 @@ class _DoctorChatScreenState extends State<DoctorChatScreen> {
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(16),
             topRight: Radius.circular(16),
-            bottomRight: Radius.circular(16),
+            bottomLeft: Radius.circular(16),
           ),
         ),
-        constraints: const BoxConstraints(maxWidth: 250),
-        child: Text(
-          text,
-          style: const TextStyle(color: Colors.white),
+        constraints: const BoxConstraints(maxWidth: 280),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              message.message,
+              style: const TextStyle(color: Colors.white, fontSize: 15),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _formatTime(message.timestamp),
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ],
         ),
       ),
     );
@@ -264,22 +547,34 @@ class _DoctorChatScreenState extends State<DoctorChatScreen> {
               child: TextField(
                 controller: _messageController,
                 decoration: const InputDecoration(
-                  hintText: 'Write a message...',
+                  hintText: 'اكتب رسالة للطلاب...',
                   border: InputBorder.none,
                 ),
+                maxLines: null,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => _sendMessage(),
               ),
             ),
           ),
           const SizedBox(width: 8),
           InkWell(
-            onTap: _sendMessage,
+            onTap: isSending ? null : _sendMessage,
             child: Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: color,
+                color: isSending ? Colors.grey : color,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.send, color: Colors.white, size: 18),
+              child: isSending
+                  ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+                  : const Icon(Icons.send, color: Colors.white, size: 18),
             ),
           ),
         ],
@@ -287,13 +582,28 @@ class _DoctorChatScreenState extends State<DoctorChatScreen> {
     );
   }
 
-  void _sendMessage() {
-    final text = _messageController.text.trim();
-    if (text.isNotEmpty) {
-      setState(() {
-        messages.add(text);
-      });
-      _messageController.clear();
+  String _formatTime(DateTime timestamp) {
+    final now = DateTime.now();
+    final diff = now.difference(timestamp);
+
+    if (diff.inDays > 0) {
+      return '${diff.inDays} يوم';
+    } else if (diff.inHours > 0) {
+      return '${diff.inHours} ساعة';
+    } else if (diff.inMinutes > 0) {
+      return '${diff.inMinutes} دقيقة';
+    } else {
+      return 'الآن';
+    }
+  }
+
+  String _getYearName(int year) {
+    switch (year) {
+      case 1: return 'الأولى';
+      case 2: return 'الثانية';
+      case 3: return 'الثالثة';
+      case 4: return 'الرابعة';
+      default: return '$year';
     }
   }
 }
