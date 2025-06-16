@@ -34,24 +34,24 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                 const Text('مسح QR Code للحضور'),
                 if (authProvider.isOfflineMode) ...[
                   const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.orange,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.wifi_off, size: 12, color: Colors.white),
-                        SizedBox(width: 4),
-                        Text(
-                          'محلي',
-                          style: TextStyle(fontSize: 10, color: Colors.white),
-                        ),
-                      ],
-                    ),
-                  ),
+                  // Container(
+                  //   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  //   decoration: BoxDecoration(
+                  //     color: Colors.orange,
+                  //     borderRadius: BorderRadius.circular(12),
+                  //   ),
+                  //   child: const Row(
+                  //     mainAxisSize: MainAxisSize.min,
+                  //     children: [
+                  //       Icon(Icons.wifi_off, size: 12, color: Colors.white),
+                  //       SizedBox(width: 4),
+                  //       Text(
+                  //         'محلي',
+                  //         style: TextStyle(fontSize: 10, color: Colors.white),
+                  //       ),
+                  //     ],
+                  //   ),
+                  // ),
                 ],
               ],
             ),
@@ -90,6 +90,8 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
             ],
           ),
           body: Column(
+            crossAxisAlignment:  CrossAxisAlignment.center,
+            mainAxisAlignment:  MainAxisAlignment.center,
             children: <Widget>[
               // Instructions
               Container(

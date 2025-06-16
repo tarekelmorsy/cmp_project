@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
+import '../services/offline_mode_service.dart';
 import '../models/models.dart';
 
 class AbsenceScreen extends StatefulWidget {
@@ -9,6 +12,7 @@ class AbsenceScreen extends StatefulWidget {
 
 class _AbsenceScreenState extends State<AbsenceScreen> {
   final ApiService _apiService = ApiService();
+  final OfflineModeService _offlineService = OfflineModeService();
   List<Course> _courses = [];
   Map<String, List<AttendanceRecord>> _attendanceData = {};
   bool _isLoading = true;
@@ -27,7 +31,21 @@ class _AbsenceScreenState extends State<AbsenceScreen> {
     });
 
     try {
-      final coursesResult = await _apiService.getStudentCourses();
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      Map<String, dynamic> coursesResult;
+
+      if (authProvider.isOfflineMode) {
+        // Use offline service
+        coursesResult = await _offlineService.getStudentCourses();
+      } else {
+        // Try API first, fallback to offline
+        try {
+          coursesResult = await _apiService.getStudentCourses();
+        } catch (e) {
+          print('API failed, using offline mode: $e');
+          coursesResult = await _offlineService.getStudentCourses();
+        }
+      }
 
       if (coursesResult['success']) {
         final List<dynamic> coursesData = coursesResult['data']['courses'] ?? [];
@@ -62,7 +80,21 @@ class _AbsenceScreenState extends State<AbsenceScreen> {
 
   Future<void> _loadCourseAttendance(String courseId) async {
     try {
-      final result = await _apiService.getAttendanceHistory(courseId);
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      Map<String, dynamic> result;
+
+      if (authProvider.isOfflineMode) {
+        // Use offline service - create dummy attendance records
+        result = await _createDummyAttendanceForCourse(courseId);
+      } else {
+        // Try API first, fallback to offline
+        try {
+          result = await _apiService.getAttendanceHistory(courseId);
+        } catch (e) {
+          print('API failed for attendance, using dummy data: $e');
+          result = await _createDummyAttendanceForCourse(courseId);
+        }
+      }
 
       if (result['success']) {
         final List<dynamic> attendanceData = result['data']['attendance'] ?? [];
@@ -76,6 +108,44 @@ class _AbsenceScreenState extends State<AbsenceScreen> {
       // Handle individual course errors silently
       print('Error loading attendance for course $courseId: $e');
     }
+  }
+
+  Future<Map<String, dynamic>> _createDummyAttendanceForCourse(String courseId) async {
+    // Create dummy attendance records for demonstration
+    final List<Map<String, dynamic>> attendanceRecords = [];
+    final now = DateTime.now();
+
+    // Generate 15 attendance records (dummy data)
+    for (int i = 0; i < 15; i++) {
+      final date = now.subtract(Duration(days: i * 3));
+      final status = _getDummyAttendanceStatus(courseId, i);
+
+      attendanceRecords.add({
+        'id': '${courseId}_$i',
+        'course_id': courseId,
+        'student_id': '1001',
+        'date': date.toIso8601String(),
+        'status': status,
+        'check_in_time': status != 'absent' ? date.add(Duration(hours: 9, minutes: 15 + (i % 30))).toIso8601String() : null,
+      });
+    }
+
+    return {
+      'success': true,
+      'data': {
+        'attendance': attendanceRecords
+      }
+    };
+  }
+
+  String _getDummyAttendanceStatus(String courseId, int index) {
+    // Simple algorithm to generate varied attendance status
+    final hash = courseId.hashCode + index;
+    final remainder = hash % 10;
+
+    if (remainder < 7) return 'present';
+    if (remainder < 9) return 'late';
+    return 'absent';
   }
 
   void _loadDummyData() {
@@ -136,93 +206,126 @@ class _AbsenceScreenState extends State<AbsenceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 649,
-      child: Scaffold(
-        body: Column(
-          children: [
-            // Header
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor,
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(20),
-                  bottomRight: Radius.circular(20),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.event_busy, color: Colors.white, size: 28),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'حالة الحضور والغياب',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        return SizedBox(
+          height: 649,
+          child: Scaffold(
+            body: Column(
+              children: [
+                // Header
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor,
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(20),
+                      bottomRight: Radius.circular(20),
                     ),
                   ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.refresh, color: Colors.white),
-                    onPressed: _loadAttendanceData,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.event_busy, color: Colors.white, size: 28),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'حالة الحضور والغياب',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      if (authProvider.isOfflineMode) ...[
+                        const SizedBox(width: 8),
+                        // Container(
+                        //   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        //   decoration: BoxDecoration(
+                        //     color: Colors.orange,
+                        //     borderRadius: BorderRadius.circular(12),
+                        //   ),
+                        //   child: const Row(
+                        //     mainAxisSize: MainAxisSize.min,
+                        //     children: [
+                        //       Icon(Icons.wifi_off, size: 12, color: Colors.white),
+                        //       SizedBox(width: 4),
+                        //       Text(
+                        //         'محلي',
+                        //         style: TextStyle(fontSize: 10, color: Colors.white),
+                        //       ),
+                        //     ],
+                        //   ),
+                        // ),
+                      ],
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.refresh, color: Colors.white),
+                        onPressed: _loadAttendanceData,
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
+                ),
 
-            // Content
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _errorMessage != null
-                  ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error, size: 60, color: Colors.red),
-                    const SizedBox(height: 16),
-                    Text(
-                      _errorMessage!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.red),
+                // Content
+                Expanded(
+                  child: _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _errorMessage != null
+                      ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          authProvider.isOfflineMode ? Icons.wifi_off : Icons.error,
+                          size: 60,
+                          color: authProvider.isOfflineMode ? Colors.orange : Colors.red,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          authProvider.isOfflineMode
+                              ? 'يتم تشغيل التطبيق في الوضع المحلي'
+                              : _errorMessage!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: authProvider.isOfflineMode ? Colors.orange : Colors.red,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _loadAttendanceData,
+                          child: const Text('إعادة المحاولة'),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: _loadAttendanceData,
-                      child: const Text('إعادة المحاولة'),
+                  )
+                      : _courses.isEmpty
+                      ? const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.school_outlined, size: 60, color: Colors.grey),
+                        SizedBox(height: 16),
+                        Text(
+                          'لا توجد مواد مسجلة',
+                          style: TextStyle(color: Colors.grey, fontSize: 16),
+                        ),
+                      ],
                     ),
-                  ],
+                  )
+                      : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _courses.length,
+                    itemBuilder: (context, index) {
+                      final course = _courses[index];
+                      return _buildCourseAttendanceCard(course);
+                    },
+                  ),
                 ),
-              )
-                  : _courses.isEmpty
-                  ? const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.school_outlined, size: 60, color: Colors.grey),
-                    SizedBox(height: 16),
-                    Text(
-                      'لا توجد مواد مسجلة',
-                      style: TextStyle(color: Colors.grey, fontSize: 16),
-                    ),
-                  ],
-                ),
-              )
-                  : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: _courses.length,
-                itemBuilder: (context, index) {
-                  final course = _courses[index];
-                  return _buildCourseAttendanceCard(course);
-                },
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 

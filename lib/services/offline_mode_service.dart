@@ -241,4 +241,61 @@ class OfflineModeService {
       }
     };
   }
+
+  // New methods for grades and attendance
+  Future<Map<String, dynamic>> getGrades(String courseId) async {
+    await Future.delayed(Duration(milliseconds: 500));
+
+    return {
+      'success': true,
+      'data': {
+        'grades': [
+          {'exam_name': 'Final', 'score': 45, 'grade': 'A'},
+          {'exam_name': 'YearWork', 'score': 9, 'grade': 'B+'},
+          {'exam_name': 'Practical', 'score': 14, 'grade': 'B'},
+          {'exam_name': 'Oral', 'score': 5, 'grade': 'C+'},
+          {'exam_name': 'MidTerm', 'score': 28, 'grade': 'B+'},
+        ]
+      }
+    };
+  }
+
+  Future<Map<String, dynamic>> getAttendanceHistory(String courseId) async {
+    await Future.delayed(Duration(milliseconds: 500));
+
+    final List<Map<String, dynamic>> attendanceRecords = [];
+    final now = DateTime.now();
+
+    // Generate 15 attendance records for demonstration
+    for (int i = 0; i < 15; i++) {
+      final date = now.subtract(Duration(days: i * 3));
+      final status = _getDummyAttendanceStatus(courseId, i);
+
+      attendanceRecords.add({
+        'id': '${courseId}_$i',
+        'course_id': courseId,
+        'student_id': '1',
+        'date': date.toIso8601String(),
+        'status': status,
+        'check_in_time': status != 'absent' ? date.add(Duration(hours: 9, minutes: 15 + (i % 30))).toIso8601String() : null,
+      });
+    }
+
+    return {
+      'success': true,
+      'data': {
+        'attendance': attendanceRecords
+      }
+    };
+  }
+
+  String _getDummyAttendanceStatus(String courseId, int index) {
+    // Simple algorithm to generate varied attendance status
+    final hash = courseId.hashCode + index;
+    final remainder = hash % 10;
+
+    if (remainder < 7) return 'present';
+    if (remainder < 9) return 'late';
+    return 'absent';
+  }
 }

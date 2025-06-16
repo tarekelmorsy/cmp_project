@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
+import '../services/offline_mode_service.dart';
 import '../models/models.dart';
 
 class OneSidedChatScreen extends StatelessWidget {
@@ -28,6 +29,7 @@ class _StudentChatScreen extends StatefulWidget {
 
 class _StudentChatScreenState extends State<_StudentChatScreen> {
   final ApiService _apiService = ApiService();
+  final OfflineModeService _offlineService = OfflineModeService();
   List<ChatMessage> messages = [];
   bool isLoading = true;
   String? errorMessage;
@@ -46,7 +48,21 @@ class _StudentChatScreenState extends State<_StudentChatScreen> {
     });
 
     try {
-      final result = await _apiService.getChatMessages(courseId);
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      Map<String, dynamic> result;
+
+      if (authProvider.isOfflineMode) {
+        // Use offline service
+        result = await _offlineService.getChatMessages(courseId);
+      } else {
+        // Try API first, fallback to offline
+        try {
+          result = await _apiService.getChatMessages(courseId);
+        } catch (e) {
+          print('API failed, using offline mode: $e');
+          result = await _offlineService.getChatMessages(courseId);
+        }
+      }
 
       if (result['success']) {
         final List<dynamic> messagesData = result['data']['messages'] ?? [];
@@ -74,93 +90,126 @@ class _StudentChatScreenState extends State<_StudentChatScreen> {
     const Color bubbleColor = Color(0xFF2D336B);
     const Color backgroundColor = Color(0xFFF9F9F9);
 
-    return SizedBox(
-      height: 649,
-      child: Scaffold(
-        backgroundColor: backgroundColor,
-        body: Column(
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor,
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(20),
-                  bottomRight: Radius.circular(20),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.chat, color: Colors.white),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'إعلانات المادة',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        return SizedBox(
+          height: 649,
+          child: Scaffold(
+            backgroundColor: backgroundColor,
+            body: Column(
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor,
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(20),
+                      bottomRight: Radius.circular(20),
                     ),
                   ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.refresh, color: Colors.white),
-                    onPressed: _loadMessages,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.chat, color: Colors.white),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'إعلانات المادة',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (authProvider.isOfflineMode) ...[
+                        const SizedBox(width: 8),
+                        // Container(
+                        //   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        //   decoration: BoxDecoration(
+                        //     color: Colors.orange,
+                        //     borderRadius: BorderRadius.circular(12),
+                        //   ),
+                        //   child: const Row(
+                        //     mainAxisSize: MainAxisSize.min,
+                        //     children: [
+                        //       Icon(Icons.wifi_off, size: 12, color: Colors.white),
+                        //       SizedBox(width: 4),
+                        //       Text(
+                        //         'محلي',
+                        //         style: TextStyle(fontSize: 10, color: Colors.white),
+                        //       ),
+                        //     ],
+                        //   ),
+                        // ),
+                      ],
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.refresh, color: Colors.white),
+                        onPressed: _loadMessages,
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
+                ),
 
-            // Messages
-            Expanded(
-              child: isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : errorMessage != null
-                  ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error, size: 60, color: Colors.red),
-                    const SizedBox(height: 16),
-                    Text(
-                      errorMessage!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.red),
+                // Messages
+                Expanded(
+                  child: isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : errorMessage != null
+                      ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          authProvider.isOfflineMode ? Icons.wifi_off : Icons.error,
+                          size: 60,
+                          color: authProvider.isOfflineMode ? Colors.orange : Colors.red,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          authProvider.isOfflineMode
+                              ? 'يتم تشغيل التطبيق في الوضع المحلي'
+                              : errorMessage!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: authProvider.isOfflineMode ? Colors.orange : Colors.red,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _loadMessages,
+                          child: const Text('إعادة المحاولة'),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: _loadMessages,
-                      child: const Text('إعادة المحاولة'),
+                  )
+                      : messages.isEmpty
+                      ? const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.chat_bubble_outline, size: 60, color: Colors.grey),
+                        SizedBox(height: 16),
+                        Text(
+                          'لا توجد رسائل بعد',
+                          style: TextStyle(color: Colors.grey, fontSize: 16),
+                        ),
+                      ],
                     ),
-                  ],
+                  )
+                      : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    itemCount: messages.length,
+                    itemBuilder: (context, index) {
+                      final message = messages[index];
+                      return _buildChatBubble(message, bubbleColor);
+                    },
+                  ),
                 ),
-              )
-                  : messages.isEmpty
-                  ? const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.chat_bubble_outline, size: 60, color: Colors.grey),
-                    SizedBox(height: 16),
-                    Text(
-                      'لا توجد رسائل بعد',
-                      style: TextStyle(color: Colors.grey, fontSize: 16),
-                    ),
-                  ],
-                ),
-              )
-                  : ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                itemCount: messages.length,
-                itemBuilder: (context, index) {
-                  final message = messages[index];
-                  return _buildChatBubble(message, bubbleColor);
-                },
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -219,47 +268,78 @@ class _DoctorYearSelectionScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     const Color backgroundColor = Color(0xFFF9F9F9);
 
-    return Container(
-      height: 649,
-      child: Scaffold(
-        backgroundColor: backgroundColor,
-        body: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              // Header
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Text(
-                  'اختر السنة الدراسية للدردشة معها',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        return Container(
+          height: 649,
+          child: Scaffold(
+            backgroundColor: backgroundColor,
+            body: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  // Header
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'اختر السنة الدراسية للدردشة معها',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        if (authProvider.isOfflineMode) ...[
+                          const SizedBox(width: 8),
+                          // Container(
+                          //   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          //   decoration: BoxDecoration(
+                          //     color: Colors.orange,
+                          //     borderRadius: BorderRadius.circular(12),
+                          //   ),
+                          //   child: const Row(
+                          //     mainAxisSize: MainAxisSize.min,
+                          //     children: [
+                          //       Icon(Icons.wifi_off, size: 12, color: Colors.white),
+                          //       SizedBox(width: 4),
+                          //       Text(
+                          //         'محلي',
+                          //         style: TextStyle(fontSize: 10, color: Colors.white),
+                          //       ),
+                          //     ],
+                          //   ),
+                          // ),
+                        ],
+                      ],
+                    ),
                   ),
-                  textAlign: TextAlign.center,
-                ),
+
+                  const SizedBox(height: 32),
+
+                  // Year buttons
+                  _buildYearButton(context, 1),
+                  const SizedBox(height: 16),
+                  _buildYearButton(context, 2),
+                  const SizedBox(height: 16),
+                  _buildYearButton(context, 3),
+                  const SizedBox(height: 16),
+                  _buildYearButton(context, 4),
+                ],
               ),
-
-              const SizedBox(height: 32),
-
-              // Year buttons
-              _buildYearButton(context, 1),
-              const SizedBox(height: 16),
-              _buildYearButton(context, 2),
-              const SizedBox(height: 16),
-              _buildYearButton(context, 3),
-              const SizedBox(height: 16),
-              _buildYearButton(context, 4),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -312,6 +392,7 @@ class DoctorChatScreen extends StatefulWidget {
 class _DoctorChatScreenState extends State<DoctorChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ApiService _apiService = ApiService();
+  final OfflineModeService _offlineService = OfflineModeService();
   List<ChatMessage> messages = [];
   bool isLoading = true;
   bool isSending = false;
@@ -337,7 +418,21 @@ class _DoctorChatScreenState extends State<DoctorChatScreen> {
     });
 
     try {
-      final result = await _apiService.getChatMessages(courseId);
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      Map<String, dynamic> result;
+
+      if (authProvider.isOfflineMode) {
+        // Use offline service
+        result = await _offlineService.getChatMessages(courseId);
+      } else {
+        // Try API first, fallback to offline
+        try {
+          result = await _apiService.getChatMessages(courseId);
+        } catch (e) {
+          print('API failed, using offline mode: $e');
+          result = await _offlineService.getChatMessages(courseId);
+        }
+      }
 
       if (result['success']) {
         final List<dynamic> messagesData = result['data']['messages'] ?? [];
@@ -369,13 +464,27 @@ class _DoctorChatScreenState extends State<DoctorChatScreen> {
     });
 
     try {
-      final result = await _apiService.sendChatMessage(courseId, text);
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      Map<String, dynamic> result;
+
+      if (authProvider.isOfflineMode) {
+        // Use offline service
+        result = await _offlineService.sendChatMessage(courseId, text);
+      } else {
+        // Try API first, fallback to offline
+        try {
+          result = await _apiService.sendChatMessage(courseId, text);
+        } catch (e) {
+          print('API failed, using offline mode: $e');
+          result = await _offlineService.sendChatMessage(courseId, text);
+        }
+      }
 
       if (result['success']) {
         _messageController.clear();
 
         // Add message to local list for immediate UI update
-        final user = Provider.of<AuthProvider>(context, listen: false).currentUser!;
+        final user = authProvider.currentUser!;
         final newMessage = ChatMessage(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           courseId: courseId,
@@ -391,8 +500,10 @@ class _DoctorChatScreenState extends State<DoctorChatScreen> {
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('تم إرسال الرسالة بنجاح'),
+          SnackBar(
+            content: Text(authProvider.isOfflineMode
+                ? 'تم إرسال الرسالة بنجاح (وضع محلي)'
+                : 'تم إرسال الرسالة بنجاح'),
             backgroundColor: Colors.green,
           ),
         );
@@ -423,73 +534,110 @@ class _DoctorChatScreenState extends State<DoctorChatScreen> {
     const Color bubbleColor = Color(0xFF2D336B);
     const Color backgroundColor = Color(0xFFF9F9F9);
 
-    return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: AppBar(
-        title: Text('دردشة السنة ${_getYearName(widget.year)}'),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadMessages,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Messages
-          Expanded(
-            child: isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : errorMessage != null
-                ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error, size: 60, color: Colors.red),
-                  const SizedBox(height: 16),
-                  Text(
-                    errorMessage!,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _loadMessages,
-                    child: const Text('إعادة المحاولة'),
-                  ),
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        return Scaffold(
+          backgroundColor: backgroundColor,
+          appBar: AppBar(
+            title: Row(
+              children: [
+                Text('دردشة السنة ${_getYearName(widget.year)}'),
+                if (authProvider.isOfflineMode) ...[
+                  const SizedBox(width: 8),
+                  // Container(
+                  //   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  //   decoration: BoxDecoration(
+                  //     color: Colors.orange,
+                  //     borderRadius: BorderRadius.circular(12),
+                  //   ),
+                  //   child: const Row(
+                  //     mainAxisSize: MainAxisSize.min,
+                  //     children: [
+                  //       Icon(Icons.wifi_off, size: 12, color: Colors.white),
+                  //       SizedBox(width: 4),
+                  //       Text(
+                  //         'محلي',
+                  //         style: TextStyle(fontSize: 10, color: Colors.white),
+                  //       ),
+                  //     ],
+                  //   ),
+                  // ),
                 ],
-              ),
-            )
-                : messages.isEmpty
-                ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.chat_bubble_outline, size: 60, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text(
-                    'لا توجد رسائل بعد\nابدأ بكتابة رسالة للطلاب',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey, fontSize: 16),
-                  ),
-                ],
-              ),
-            )
-                : ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              itemCount: messages.length,
-              itemBuilder: (context, index) {
-                final message = messages[index];
-                return _buildChatBubble(message, bubbleColor);
-              },
+              ],
             ),
+            centerTitle: true,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: _loadMessages,
+              ),
+            ],
           ),
+          body: Column(
+            children: [
+              // Messages
+              Expanded(
+                child: isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : errorMessage != null
+                    ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        authProvider.isOfflineMode ? Icons.wifi_off : Icons.error,
+                        size: 60,
+                        color: authProvider.isOfflineMode ? Colors.orange : Colors.red,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        authProvider.isOfflineMode
+                            ? 'يتم تشغيل التطبيق في الوضع المحلي'
+                            : errorMessage!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: authProvider.isOfflineMode ? Colors.orange : Colors.red,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _loadMessages,
+                        child: const Text('إعادة المحاولة'),
+                      ),
+                    ],
+                  ),
+                )
+                    : messages.isEmpty
+                    ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.chat_bubble_outline, size: 60, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text(
+                        'لا توجد رسائل بعد\nابدأ بكتابة رسالة للطلاب',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey, fontSize: 16),
+                      ),
+                    ],
+                  ),
+                )
+                    : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) {
+                    final message = messages[index];
+                    return _buildChatBubble(message, bubbleColor);
+                  },
+                ),
+              ),
 
-          // Message input
-          _buildMessageInput(bubbleColor),
-        ],
-      ),
+              // Message input
+              _buildMessageInput(bubbleColor),
+            ],
+          ),
+        );
+      },
     );
   }
 

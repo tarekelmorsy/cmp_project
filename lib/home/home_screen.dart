@@ -161,24 +161,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 Text('أهلاً، ${user.name}'),
                 if (authProvider.isOfflineMode) ...[
                   const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.orange,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.wifi_off, size: 14, color: Colors.white),
-                        SizedBox(width: 4),
-                        Text(
-                          'وضع محلي',
-                          style: TextStyle(fontSize: 12, color: Colors.white),
-                        ),
-                      ],
-                    ),
-                  ),
+                  // Container(
+                  //   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  //   decoration: BoxDecoration(
+                  //     color: Colors.orange,
+                  //     borderRadius: BorderRadius.circular(12),
+                  //   ),
+                  //   child: const Row(
+                  //     mainAxisSize: MainAxisSize.min,
+                  //     children: [
+                  //       Icon(Icons.wifi_off, size: 14, color: Colors.white),
+                  //       SizedBox(width: 4),
+                  //       Text(
+                  //         'وضع محلي',
+                  //         style: TextStyle(fontSize: 12, color: Colors.white),
+                  //       ),
+                  //     ],
+                  //   ),
+                  // ),
                 ],
               ],
             ),
