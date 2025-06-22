@@ -11,23 +11,17 @@ class OfflineModeService {
   final List<Map<String, dynamic>> _defaultUsers = [
     {
       'id': '1',
-      'name': 'أحمد محمد',
+      'name': 'Ahmed Mohamed',
       'email': 'student@test.com',
       'password': '123456',
       'role': 'student',
-      'student_id': 'ST001',
-      'phone': '01234567890',
-      'department': 'علوم الحاسوب',
     },
     {
       'id': '2',
-      'name': 'د. سارة أحمد',
+      'name': 'Dr. Sara Ahmed',
       'email': 'teacher@test.com',
       'password': '123456',
       'role': 'teacher',
-      'teacher_id': 'TC001',
-      'phone': '01987654321',
-      'department': 'علوم الحاسوب',
     },
   ];
 
@@ -43,7 +37,7 @@ class OfflineModeService {
   }
 
   // Offline Login
-  Future<Map<String, dynamic>> login(String email, String password) async {
+  Future<Map<String, dynamic>> login(String email, String password, String userType) async {
     await initializeOfflineData();
 
     final prefs = await SharedPreferences.getInstance();
@@ -53,7 +47,7 @@ class OfflineModeService {
       final List<dynamic> users = jsonDecode(usersData);
 
       final user = users.firstWhere(
-            (u) => u['email'] == email && u['password'] == password,
+            (u) => u['email'] == email && u['password'] == password && u['role'] == userType,
         orElse: () => null,
       );
 
@@ -61,13 +55,13 @@ class OfflineModeService {
         // Store current user
         await prefs.setString(_currentUserKey, jsonEncode(user));
         // Generate fake token
-        await prefs.setString('auth_token', 'offline_token_${DateTime.now().millisecondsSinceEpoch}');
+        await prefs.setString('access_token', 'offline_token_${DateTime.now().millisecondsSinceEpoch}');
 
         return {
           'success': true,
           'data': {
             'user': user,
-            'token': 'offline_token_${DateTime.now().millisecondsSinceEpoch}',
+            'access_token': 'offline_token_${DateTime.now().millisecondsSinceEpoch}',
           }
         };
       }
@@ -75,7 +69,7 @@ class OfflineModeService {
 
     return {
       'success': false,
-      'message': 'البريد الإلكتروني أو كلمة المرور غير صحيحة'
+      'message': 'Invalid email or password'
     };
   }
 
@@ -100,7 +94,7 @@ class OfflineModeService {
     if (existingUser != null) {
       return {
         'success': false,
-        'message': 'البريد الإلكتروني مستخدم بالفعل'
+        'message': 'Email already exists'
       };
     }
 
@@ -113,7 +107,7 @@ class OfflineModeService {
 
     return {
       'success': true,
-      'message': 'تم إنشاء الحساب بنجاح'
+      'message': 'Account created successfully'
     };
   }
 
@@ -139,7 +133,7 @@ class OfflineModeService {
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_currentUserKey);
-    await prefs.remove('auth_token');
+    await prefs.remove('access_token');
   }
 
   // Mock data for other features
@@ -154,21 +148,20 @@ class OfflineModeService {
             'id': '1',
             'name': 'Flutter Development',
             'code': 'CS101',
-            'description': 'مقدمة في تطوير تطبيقات Flutter',
+            'description': 'Introduction to Flutter Development',
             'teacher_id': '2',
-            'teacher_name': 'د. سارة أحمد',
+            'teacher_name': 'Dr. Sara Ahmed',
             'credit_hours': 3,
-            'enrolled_students': ['1']
+
           },
           {
             'id': '2',
             'name': 'Database Systems',
             'code': 'CS201',
-            'description': 'أنظمة قواعد البيانات',
+            'description': 'Database Management Systems',
             'teacher_id': '2',
-            'teacher_name': 'د. سارة أحمد',
+            'teacher_name': 'Dr. Sara Ahmed',
             'credit_hours': 3,
-            'enrolled_students': ['1']
           },
         ]
       }
@@ -181,21 +174,22 @@ class OfflineModeService {
     return {
       'success': true,
       'data': {
-        'qr_data': 'COURSE_${courseId}_${DateTime.now().millisecondsSinceEpoch}',
+        'qr_code': 'COURSE_${courseId}_SESSION_${DateTime.now().millisecondsSinceEpoch}',
         'course_id': courseId,
+        'session_id': DateTime.now().millisecondsSinceEpoch.toString(),
         'generated_at': DateTime.now().toIso8601String(),
         'expires_at': DateTime.now().add(Duration(hours: 2)).toIso8601String(),
       }
     };
   }
 
-  Future<Map<String, dynamic>> markAttendance(String qrData) async {
+  Future<Map<String, dynamic>> scanQRCode(String qrCode) async {
     await Future.delayed(Duration(seconds: 1));
 
     return {
       'success': true,
       'data': {
-        'message': 'تم تسجيل الحضور بنجاح',
+        'message': 'Attendance marked successfully',
         'timestamp': DateTime.now().toIso8601String(),
       }
     };
@@ -212,18 +206,18 @@ class OfflineModeService {
             'id': '1',
             'course_id': courseId,
             'sender_id': '2',
-            'sender_name': 'د. سارة أحمد',
+            'sender_name': 'Dr. Sara Ahmed',
             'sender_role': 'teacher',
-            'message': 'مرحباً بكم في المادة',
+            'message': 'Welcome to the course',
             'timestamp': DateTime.now().subtract(Duration(hours: 2)).toIso8601String(),
           },
           {
             'id': '2',
             'course_id': courseId,
             'sender_id': '2',
-            'sender_name': 'د. سارة أحمد',
+            'sender_name': 'Dr. Sara Ahmed',
             'sender_role': 'teacher',
-            'message': 'يرجى مراجعة المحاضرة الأولى',
+            'message': 'Please review the first lecture',
             'timestamp': DateTime.now().subtract(Duration(hours: 1)).toIso8601String(),
           },
         ]
@@ -237,30 +231,45 @@ class OfflineModeService {
     return {
       'success': true,
       'data': {
-        'message': 'تم إرسال الرسالة بنجاح'
+        'message': 'Message sent successfully'
       }
     };
   }
 
   // New methods for grades and attendance
-  Future<Map<String, dynamic>> getGrades(String courseId) async {
+  Future<Map<String, dynamic>> getGrades() async {
     await Future.delayed(Duration(milliseconds: 500));
 
     return {
       'success': true,
       'data': {
         'grades': [
-          {'exam_name': 'Final', 'score': 45, 'grade': 'A'},
-          {'exam_name': 'YearWork', 'score': 9, 'grade': 'B+'},
-          {'exam_name': 'Practical', 'score': 14, 'grade': 'B'},
-          {'exam_name': 'Oral', 'score': 5, 'grade': 'C+'},
-          {'exam_name': 'MidTerm', 'score': 28, 'grade': 'B+'},
+          {
+            'course_name': 'Flutter Development',
+            'final': 45,
+            'year_work': 9,
+            'practical': 14,
+            'oral': 5,
+            'mid_term': 28,
+            'total': 101,
+            'grade': 'A'
+          },
+          {
+            'course_name': 'Database Systems',
+            'final': 40,
+            'year_work': 8,
+            'practical': 12,
+            'oral': 4,
+            'mid_term': 25,
+            'total': 89,
+            'grade': 'B+'
+          },
         ]
       }
     };
   }
 
-  Future<Map<String, dynamic>> getAttendanceHistory(String courseId) async {
+  Future<Map<String, dynamic>> getAttendanceHistory() async {
     await Future.delayed(Duration(milliseconds: 500));
 
     final List<Map<String, dynamic>> attendanceRecords = [];
@@ -269,12 +278,11 @@ class OfflineModeService {
     // Generate 15 attendance records for demonstration
     for (int i = 0; i < 15; i++) {
       final date = now.subtract(Duration(days: i * 3));
-      final status = _getDummyAttendanceStatus(courseId, i);
+      final status = i % 10 < 7 ? 'present' : (i % 10 < 9 ? 'late' : 'absent');
 
       attendanceRecords.add({
-        'id': '${courseId}_$i',
-        'course_id': courseId,
-        'student_id': '1',
+        'id': '$i',
+        'course_name': i % 2 == 0 ? 'Flutter Development' : 'Database Systems',
         'date': date.toIso8601String(),
         'status': status,
         'check_in_time': status != 'absent' ? date.add(Duration(hours: 9, minutes: 15 + (i % 30))).toIso8601String() : null,
@@ -289,13 +297,30 @@ class OfflineModeService {
     };
   }
 
-  String _getDummyAttendanceStatus(String courseId, int index) {
-    // Simple algorithm to generate varied attendance status
-    final hash = courseId.hashCode + index;
-    final remainder = hash % 10;
+  Future<Map<String, dynamic>> getCourseSessions(String courseId) async {
+    await Future.delayed(Duration(milliseconds: 500));
 
-    if (remainder < 7) return 'present';
-    if (remainder < 9) return 'late';
-    return 'absent';
+    return {
+      'success': true,
+      'data': {
+        'sessions': [
+          {
+            'id': '1',
+            'name': 'Session 1',
+            'date': DateTime.now().subtract(Duration(days: 7)).toIso8601String(),
+          },
+          {
+            'id': '2',
+            'name': 'Session 2',
+            'date': DateTime.now().subtract(Duration(days: 3)).toIso8601String(),
+          },
+          {
+            'id': '3',
+            'name': 'Session 3',
+            'date': DateTime.now().toIso8601String(),
+          },
+        ]
+      }
+    };
   }
 }

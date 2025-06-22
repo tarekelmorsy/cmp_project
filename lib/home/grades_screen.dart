@@ -40,7 +40,7 @@ class _GradesScreenState extends State<GradesScreen> {
       } else {
         // Try API first, fallback to offline
         try {
-          result = await _apiService.getStudentCourses();
+          result = await _offlineService.getStudentCourses();
         } catch (e) {
           print('API failed, using offline mode: $e');
           result = await _offlineService.getStudentCourses();
@@ -146,7 +146,8 @@ class _GradesScreenState extends State<GradesScreen> {
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
-        return SizedBox(
+        return Container(
+          color: Colors.white,
           height: 649,
           child: Scaffold(
             body: Column(
@@ -251,6 +252,7 @@ class _GradesScreenState extends State<GradesScreen> {
                     ),
                   )
                       : ListView.builder(
+
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                     itemCount: _courseGrades.length,
                     itemBuilder: (context, index) {

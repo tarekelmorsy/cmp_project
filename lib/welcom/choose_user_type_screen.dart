@@ -1,5 +1,6 @@
 import 'package:cmp/welcom/register_screen.dart';
 import 'package:flutter/material.dart';
+
 import 'login_screen.dart';
 
 class ChooseRoleScreen extends StatelessWidget {
@@ -9,7 +10,6 @@ class ChooseRoleScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // أبعاد ثابتة للاستخدام
     final Size size = MediaQuery.of(context).size;
     return Scaffold(
       body: SafeArea(
@@ -18,15 +18,11 @@ class ChooseRoleScreen extends StatelessWidget {
           child: Center(
             child: Column(
               children: [
-                SizedBox(
-                  height: 80,
-                ),
-                // add logo
-                Image.asset('asset/images/logo_cmp.png',height: 100,),
+                const SizedBox(height: 80),
+                Image.asset('asset/images/logo_cmp.png', height: 100),
                 const SizedBox(height: 22),
-
                 Text(
-                  'choose your role',
+                  'Choose Your Role',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -34,21 +30,18 @@ class ChooseRoleScreen extends StatelessWidget {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                // const SizedBox(height: 8),
-
                 const SizedBox(height: 30),
 
-                // بطاقة الطالب
+                // Student Card
                 _roleCard(
                   context: context,
-                  title: 'student',
-                  subtitle: 'subTitle',
+                  title: 'Student',
+                  subtitle: 'Access your courses and attendance',
                   icon: Icons.person,
                   onTap: () {
-                    // اذهب إلى شاشة إنشاء حساب مثلاً
                     Navigator.pushNamed(
                       context,
-                        CreateAccountScreen.routeName,
+                      LoginScreen.routeName,
                       arguments: 'student',
                     );
                   },
@@ -56,66 +49,25 @@ class ChooseRoleScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
 
-
-
-                // بطاقة معلم
+                // Teacher Card
                 _roleCard(
                   context: context,
-                  title: 'teacher',
-                  subtitle: 'subTitle',
+                  title: 'Teacher',
+                  subtitle: 'Manage courses and attendance',
                   icon: Icons.school,
                   onTap: () {
                     Navigator.pushNamed(
                       context,
-                      CreateAccountScreen.routeName,
+                      LoginScreen.routeName,
                       arguments: 'teacher',
                     );
                   },
                   color: const Color(0xFFA9B5DF),
                 ),
-              //   const SizedBox(height: 90),
-              //
-              //   // زر رئيسي في الأسفل
-              //   ElevatedButton(
-              //     onPressed: () {
-              //       // مثال: ادخل مباشرة إلى شاشة تسجيل الدخول
-              //       Navigator.pushNamed(context, LoginScreen.routeName);
-              //     },
-              //     child: const Text('start now'),
-              //   ),
-              //   const SizedBox(height: 24),
-              //
-              //
               ],
             ),
           ),
         ),
-      ),
-      bottomNavigationBar:
-      Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-
-          // رابط تسجيل دخول
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                'already have an account?',
-                style: TextStyle(color: Colors.black54),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pushNamed(
-                  context,
-                  LoginScreen.routeName,
-                ),
-                child: const Text('login'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 40),
-
-        ],
       ),
     );
   }
@@ -151,16 +103,12 @@ class ChooseRoleScreen extends StatelessWidget {
                   Text(
                     title,
                     style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold
-                    ),
+                        fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                        fontSize: 13,
-                        color: Colors.black54
-                    ),
+                    style: const TextStyle(fontSize: 13, color: Colors.black54),
                   ),
                 ],
               ),

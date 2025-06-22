@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../home/home_screen.dart';
+import 'login_screen.dart';
 
 class CreateAccountScreen extends StatefulWidget {
   static const String routeName = '/create_account';
@@ -18,12 +19,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   // Controllers
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _idController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _departmentController = TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
 
-  int _selectedYear = 1;
   String? userType;
 
   @override
@@ -39,10 +37,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
-    _phoneController.dispose();
-    _idController.dispose();
     _passwordController.dispose();
-    _departmentController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -58,38 +54,33 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
-        studentId: _idController.text.trim(),
-        phone: _phoneController.text.trim(),
-        department: _departmentController.text.trim(),
+        passwordConfirmation: _confirmPasswordController.text,
       );
-    } else {
+    } else if (userType == 'teacher') {
       success = await authProvider.registerTeacher(
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
-        teacherId: _idController.text.trim(),
-        phone: _phoneController.text.trim(),
-        department: _departmentController.text.trim(),
+        passwordConfirmation: _confirmPasswordController.text,
       );
     }
 
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(authProvider.isOfflineMode
-              ? 'تم إنشاء الحساب بنجاح! يمكنك الآن تسجيل الدخول (وضع محلي)'
-              : 'تم إنشاء الحساب بنجاح! يمكنك الآن تسجيل الدخول'),
+          content: Text('Account created successfully!'),
           backgroundColor: Colors.green,
         ),
       );
-      Navigator.of(context).pop();
+      Navigator.of(context).pushReplacementNamed(
+        LoginScreen.routeName,
+        arguments: userType,
+      );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(authProvider.errorMessage ?? 'فشل في إنشاء الحساب'),
-          backgroundColor: authProvider.errorMessage?.contains('وضع محلي') == true
-              ? Colors.orange
-              : Colors.red,
+          content: Text(authProvider.errorMessage ?? 'Failed to create account'),
+          backgroundColor: Colors.red,
         ),
       );
     }
@@ -97,6 +88,17 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Handle login navigation
+    if (userType == 'login') {
+      Future.microtask(() => Navigator.pushReplacementNamed(
+        context,
+        LoginScreen.routeName,
+      ));
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -108,7 +110,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
               children: [
                 Center(
                   child: Text(
-                    'إنشاء حساب جديد',
+                    'Create New Account',
                     style: TextStyle(
                       fontSize: 20,
                       color: Theme.of(context).primaryColor,
@@ -119,137 +121,78 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                 const SizedBox(height: 8),
                 Center(
                   child: Text(
-                    userType == 'student' ? 'حساب طالب' : 'حساب دكتور',
+                    userType == 'student' ? 'Student Account' : 'Teacher Account',
                     style: const TextStyle(color: Colors.grey, fontSize: 14),
                   ),
                 ),
                 const SizedBox(height: 24),
 
-                _buildLabel('الاسم الكامل'),
+                _buildLabel('Full Name'),
                 TextFormField(
                   controller: _nameController,
                   decoration: const InputDecoration(
-                    hintText: 'أدخل الاسم الكامل',
+                    hintText: 'Enter your full name',
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'يرجى إدخال الاسم الكامل';
+                      return 'Please enter your name';
                     }
                     return null;
                   },
                 ),
                 const SizedBox(height: 16),
 
-                _buildLabel('البريد الإلكتروني'),
+                _buildLabel('Email'),
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
-                    hintText: 'أدخل البريد الإلكتروني',
+                    hintText: 'Enter your email',
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'يرجى إدخال البريد الإلكتروني';
+                      return 'Please enter your email';
                     }
                     if (!value.contains('@')) {
-                      return 'يرجى إدخال بريد إلكتروني صحيح';
+                      return 'Please enter a valid email';
                     }
                     return null;
                   },
                 ),
                 const SizedBox(height: 16),
 
-                _buildLabel('رقم الهاتف'),
-                TextFormField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    hintText: 'أدخل رقم الهاتف',
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'يرجى إدخال رقم الهاتف';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // Student Code or Teacher ID
-                _buildLabel(userType == 'student' ? 'كود الطالب' : 'كود الدكتور'),
-                TextFormField(
-                  controller: _idController,
-                  decoration: InputDecoration(
-                    hintText: userType == 'student' ? 'أدخل كود الطالب' : 'أدخل كود الدكتور',
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return userType == 'student' ? 'يرجى إدخال كود الطالب' : 'يرجى إدخال كود الدكتور';
-                    }
-                    return null;
-                  },
-                ),
-
-                // Student Year or Teacher Department
-                if (userType == 'student') ...[
-                  const SizedBox(height: 16),
-                  _buildLabel('السنة الدراسية'),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: DropdownButton<int>(
-                      value: _selectedYear,
-                      isExpanded: true,
-                      underline: const SizedBox(),
-                      items: const [
-                        DropdownMenuItem(child: Text('السنة الأولى'), value: 1),
-                        DropdownMenuItem(child: Text('السنة الثانية'), value: 2),
-                        DropdownMenuItem(child: Text('السنة الثالثة'), value: 3),
-                        DropdownMenuItem(child: Text('السنة الرابعة'), value: 4),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedYear = value ?? 1;
-                        });
-                      },
-                    ),
-                  ),
-                ],
-
-                const SizedBox(height: 16),
-                _buildLabel('القسم/التخصص'),
-                TextFormField(
-                  controller: _departmentController,
-                  decoration: const InputDecoration(
-                    hintText: 'أدخل القسم أو التخصص',
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'يرجى إدخال القسم أو التخصص';
-                    }
-                    return null;
-                  },
-                ),
-
-                const SizedBox(height: 16),
-
-                _buildLabel('كلمة المرور'),
+                _buildLabel('Password'),
                 TextFormField(
                   controller: _passwordController,
                   obscureText: true,
                   decoration: const InputDecoration(
-                    hintText: 'أدخل كلمة المرور',
+                    hintText: 'Enter your password',
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'يرجى إدخال كلمة المرور';
+                      return 'Please enter your password';
                     }
                     if (value.length < 6) {
-                      return 'كلمة المرور يجب أن تكون 6 أحرف على الأقل';
+                      return 'Password must be at least 6 characters';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                _buildLabel('Confirm Password'),
+                TextFormField(
+                  controller: _confirmPasswordController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    hintText: 'Confirm your password',
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please confirm your password';
+                    }
+                    if (value != _passwordController.text) {
+                      return 'Passwords do not match';
                     }
                     return null;
                   },
@@ -260,7 +203,6 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           ),
         ),
       ),
-
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         child: Column(
@@ -283,11 +225,10 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     onPressed: () {
                       Navigator.pop(context);
                     },
-                    child: const Text('رجوع'),
+                    child: const Text('Back'),
                   ),
                 ),
                 const SizedBox(width: 8),
-
                 Expanded(
                   child: Consumer<AuthProvider>(
                     builder: (context, authProvider, child) {
@@ -302,7 +243,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                            : const Text('إنشاء الحساب'),
+                            : const Text('Create Account'),
                       );
                     },
                   ),

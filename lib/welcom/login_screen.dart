@@ -1,8 +1,9 @@
+import 'package:cmp/welcom/register_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../home/home_screen.dart';
-
+//"dsfgfdg@df.com"
 class LoginScreen extends StatefulWidget {
   static const String routeName = '/login';
 
@@ -18,6 +19,16 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
 
   bool _obscurePass = true;
+  String? _userType;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is String) {
+      _userType = args;
+    }
+  }
 
   @override
   void dispose() {
@@ -28,20 +39,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_userType == null) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     final success = await authProvider.login(
       _emailController.text.trim(),
       _passwordController.text,
+      _userType!,
     );
 
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(authProvider.isOfflineMode
-              ? 'تم تسجيل الدخول بنجاح (وضع محلي)'
-              : 'تم تسجيل الدخول بنجاح'),
+        const SnackBar(
+          content: Text('Login successful'),
           backgroundColor: Colors.green,
         ),
       );
@@ -50,14 +61,14 @@ class _LoginScreenState extends State<LoginScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(authProvider.errorMessage ?? 'فشل تسجيل الدخول'),
-          backgroundColor: authProvider.errorMessage?.contains('وضع محلي') == true
-              ? Colors.orange
-              : Colors.red,
+          content: Text(authProvider.errorMessage ?? 'Login failed'),
+          backgroundColor: Colors.red,
         ),
       );
     }
   }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +88,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       Center(
                         child: Text(
-                          'تسجيل الدخول',
+                          'Login',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -86,11 +97,21 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
 
+                      if (_userType != null) ...[
+                        const SizedBox(height: 8),
+                        Center(
+                          child: Text(
+                            _userType == 'student' ? 'Student Login' : 'Teacher Login',
+                            style: const TextStyle(color: Colors.grey, fontSize: 14),
+                          ),
+                        ),
+                      ],
+
                       const SizedBox(height: 24),
 
-                      // البريد الإلكتروني
+                      // Email
                       Text(
-                        'البريد الإلكتروني',
+                        'Email',
                         style: TextStyle(
                           fontSize: 14,
                           color: Theme.of(context).primaryColor,
@@ -103,23 +124,23 @@ class _LoginScreenState extends State<LoginScreen> {
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         decoration: const InputDecoration(
-                          hintText: 'أدخل البريد الإلكتروني',
+                          hintText: 'Enter your email',
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'يرجى إدخال البريد الإلكتروني';
+                            return 'Please enter your email';
                           }
                           if (!value.contains('@')) {
-                            return 'يرجى إدخال بريد إلكتروني صحيح';
+                            return 'Please enter a valid email';
                           }
                           return null;
                         },
                       ),
                       const SizedBox(height: 16),
 
-                      // كلمة المرور
+                      // Password
                       Text(
-                        'كلمة المرور',
+                        'Password',
                         style: TextStyle(
                           fontSize: 14,
                           color: Theme.of(context).primaryColor,
@@ -132,7 +153,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         controller: _passwordController,
                         obscureText: _obscurePass,
                         decoration: InputDecoration(
-                          hintText: 'أدخل كلمة المرور',
+                          hintText: 'Enter your password',
                           suffixIcon: InkWell(
                             onTap: () {
                               setState(() {
@@ -147,10 +168,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'يرجى إدخال كلمة المرور';
+                            return 'Please enter your password';
                           }
                           if (value.length < 6) {
-                            return 'كلمة المرور يجب أن تكون 6 أحرف على الأقل';
+                            return 'Password must be at least 6 characters';
                           }
                           return null;
                         },
@@ -158,7 +179,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       const SizedBox(height: 40),
 
-                      // زر تسجيل الدخول
+                      // Login Button
                       SizedBox(
                         width: double.infinity,
                         child: Consumer<AuthProvider>(
@@ -174,26 +195,30 @@ class _LoginScreenState extends State<LoginScreen> {
                                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                 ),
                               )
-                                  : const Text('تسجيل الدخول'),
+                                  : const Text('Login'),
                             );
                           },
                         ),
                       ),
                       const SizedBox(height: 150),
 
-                      // تسجيل حساب جديد
+                      // Create Account
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Text(
-                            'ليس لديك حساب؟',
+                            'Don\'t have an account?',
                             style: TextStyle(color: Colors.black54),
                           ),
                           TextButton(
                             onPressed: () {
-                              Navigator.pop(context);
+                              Navigator.pushNamed(
+                                context,
+                                CreateAccountScreen.routeName,
+                                arguments: _userType,
+                              );
                             },
-                            child: const Text('إنشاء حساب'),
+                            child: const Text('Create Account'),
                           ),
                         ],
                       ),

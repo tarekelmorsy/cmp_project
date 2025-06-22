@@ -4,6 +4,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../services/offline_mode_service.dart';
+import '../models/models.dart';
 import 'absence_screen.dart';
 import 'attendance_history_screen.dart';
 import 'chat_screen.dart';
@@ -26,25 +27,81 @@ class _HomeScreenState extends State<HomeScreen> {
   final OfflineModeService _offlineService = OfflineModeService();
 
   // Doctor-specific: QR Code generation
-  bool _lectureCreated = false;
   bool _isGeneratingQR = false;
   String? _qrData;
-  String? _courseId = "1"; // Default course ID
-
-  // Lecture info
-  final TextEditingController _lectureNameController = TextEditingController();
-  final TextEditingController _lectureSpecialtyController = TextEditingController();
-  String _selectedYear = '1';
-  TimeOfDay? _selectedTime;
+  String? _selectedCourseId;
+  String? _selectedSessionId;
+  List<Course> _courses = [];
+  List<Session> _sessions = [];
 
   @override
-  void dispose() {
-    _lectureNameController.dispose();
-    _lectureSpecialtyController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _loadCourses();
+  }
+
+  Future<void> _loadCourses() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.isTeacher) {
+      try {
+        Map<String, dynamic> result;
+        if (authProvider.isOfflineMode) {
+          // Mock data for offline mode
+          setState(() {
+            _courses = [
+              Course(id: '1', name: 'Flutter Development', code: 'CS101'),
+              Course(id: '2', name: 'Database Systems', code: 'CS201'),
+            ];
+          });
+        } else {
+          result = await _apiService.getTeacherCourses();
+          if (result['success']) {
+            setState(() {
+              _courses = (result['data']['courses'] as List)
+                  .map((c) => Course.fromJson(c))
+                  .toList();
+            });
+          }
+        }
+      } catch (e) {
+        print('Error loading courses: $e');
+      }
+    }
+  }
+
+  Future<void> _loadSessions(String courseId) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    try {
+      Map<String, dynamic> result;
+      if (authProvider.isOfflineMode) {
+        result = await _offlineService.getCourseSessions(courseId);
+      } else {
+        result = await _apiService.getCourseSessions(courseId);
+      }
+
+      if (result['success']) {
+        setState(() {
+          _sessions = (result['data']['sessions'] as List)
+              .map((s) => Session.fromJson(s))
+              .toList();
+        });
+      }
+    } catch (e) {
+      print('Error loading sessions: $e');
+    }
   }
 
   Future<void> _generateQRCode() async {
+    if (_selectedCourseId == null || _selectedSessionId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select course and session'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isGeneratingQR = true;
     });
@@ -55,36 +112,26 @@ class _HomeScreenState extends State<HomeScreen> {
       Map<String, dynamic> result;
 
       if (authProvider.isOfflineMode) {
-        // Use offline service
-        result = await _offlineService.generateQRCode(_courseId!);
+        result = await _offlineService.generateQRCode(_selectedCourseId!);
       } else {
-        // Try API first, fallback to offline
-        try {
-          result = await _apiService.generateQRCode(_courseId!);
-        } catch (e) {
-          print('API failed, using offline mode: $e');
-          result = await _offlineService.generateQRCode(_courseId!);
-        }
+        result = await _apiService.generateQRCode(_selectedCourseId!, _selectedSessionId!);
       }
 
       if (result['success']) {
         setState(() {
-          _qrData = result['data']['qr_data'];
-          _lectureCreated = true;
+          _qrData = result['data']['qr_code'];
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(authProvider.isOfflineMode
-                ? 'تم إنشاء QR Code بنجاح (وضع محلي)'
-                : 'تم إنشاء QR Code بنجاح'),
+          const SnackBar(
+            content: Text('QR Code generated successfully'),
             backgroundColor: Colors.green,
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(result['message'] ?? 'فشل في إنشاء QR Code'),
+            content: Text(result['message'] ?? 'Failed to generate QR Code'),
             backgroundColor: Colors.red,
           ),
         );
@@ -92,7 +139,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('خطأ: $e'),
+          content: Text('Error: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -109,7 +156,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, authProvider, child) {
         if (!authProvider.isLoggedIn) {
           return const Scaffold(
-            body: Center(child: Text('غير مسجل دخول')),
+            body: Center(child: Text('Not logged in')),
           );
         }
 
@@ -156,32 +203,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
         return Scaffold(
           appBar: AppBar(
-            title: Row(
-              children: [
-                Text('أهلاً، ${user.name}'),
-                if (authProvider.isOfflineMode) ...[
-                  const SizedBox(width: 8),
-                  // Container(
-                  //   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  //   decoration: BoxDecoration(
-                  //     color: Colors.orange,
-                  //     borderRadius: BorderRadius.circular(12),
-                  //   ),
-                  //   child: const Row(
-                  //     mainAxisSize: MainAxisSize.min,
-                  //     children: [
-                  //       Icon(Icons.wifi_off, size: 14, color: Colors.white),
-                  //       SizedBox(width: 4),
-                  //       Text(
-                  //         'وضع محلي',
-                  //         style: TextStyle(fontSize: 12, color: Colors.white),
-                  //       ),
-                  //     ],
-                  //   ),
-                  // ),
-                ],
-              ],
-            ),
+            title: Text('Welcome, ${user.name}'),
             centerTitle: false,
             actions: [
               IconButton(
@@ -190,19 +212,23 @@ class _HomeScreenState extends State<HomeScreen> {
                   showDialog(
                     context: context,
                     builder: (ctx) => AlertDialog(
-                      title: const Text('تسجيل الخروج'),
-                      content: const Text('هل أنت متأكد من تسجيل الخروج؟'),
+                      title: const Text('Logout'),
+                      content: const Text('Are you sure you want to logout?'),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(ctx),
-                          child: const Text('إلغاء'),
+                          child: const Text('Cancel'),
                         ),
                         ElevatedButton(
                           onPressed: () async {
                             Navigator.pop(ctx);
                             await authProvider.logout();
+                            Navigator.of(context).pushNamedAndRemoveUntil(
+                              '/choose_role',
+                                  (route) => false,
+                            );
                           },
-                          child: const Text('تسجيل الخروج'),
+                          child: const Text('Logout'),
                         ),
                       ],
                     ),
@@ -233,7 +259,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (isStudent) {
       switch (_currentIndex) {
         case 0:
-          return _buildStudentAttendanceTab();
+          return _buildStudentAttendanceTab(isStudent);
         case 1:
           return PaymentScreen();
         case 2:
@@ -243,62 +269,68 @@ class _HomeScreenState extends State<HomeScreen> {
         case 4:
           return AbsenceScreen();
         default:
-          return const Center(child: Text('صفحة غير معروفة'));
+          return const Center(child: Text('Unknown page'));
       }
     } else {
       switch (_currentIndex) {
         case 0:
-          return _buildTeacherQRTab();
+          return QRScannerScreen( isTeacher:true,);
         case 1:
           return AttendanceHistoryScreen();
         case 2:
           return OneSidedChatScreen(userType: 'teacher');
         default:
-          return const Center(child: Text('صفحة غير معروفة'));
+          return const Center(child: Text('Unknown page'));
       }
     }
   }
 
   // Student Attendance Tab - QR Scanner
-  Widget _buildStudentAttendanceTab() {
+  Widget _buildStudentAttendanceTab(bool isStudent) {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.qr_code_scanner,
-            size: 100,
-            color: Colors.blue,
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'مسح QR Code للحضور',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'اضغط على الزر لمسح QR Code وتسجيل الحضور',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 16, color: Colors.grey),
-          ),
-          const SizedBox(height: 40),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.qr_code_scanner),
-            label: const Text('مسح QR Code'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+      padding: const EdgeInsets.all(0.0),
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.qr_code_scanner,
+              size: 100,
+              color: Colors.blue,
             ),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => QRScannerScreen(),
-                ),
-              );
-            },
-          ),
-        ],
+            const SizedBox(height: 24),
+            const Text(
+              'Scan QR Code for Attendance',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              child: const Text(
+                'Press the button to scan QR code and mark attendance',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            ),
+            const SizedBox(height: 40),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.qr_code_scanner),
+              label: const Text('Scan QR Code'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => QRScannerScreen( isTeacher: isStudent==true?false:true,),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -312,7 +344,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             const SizedBox(height: 20),
             Text(
-              'إدارة الحضور',
+              'Attendance Management',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -321,24 +353,97 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 30),
 
-            if (!_lectureCreated) ...[
-              const Icon(
-                Icons.qr_code,
-                size: 100,
-                color: Colors.blue,
+            // Course Selection
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[300]!),
               ),
-              const SizedBox(height: 24),
-              const Text(
-                'إنشاء محاضرة جديدة',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Select Course',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: _selectedCourseId,
+                    hint: const Text('Choose a course'),
+                    items: _courses.map((course) {
+                      return DropdownMenuItem(
+                        value: course.id,
+                        child: Text('${course.name} (${course.code})'),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedCourseId = value;
+                        _selectedSessionId = null;
+                        _sessions = [];
+                        _qrData = null;
+                      });
+                      if (value != null) {
+                        _loadSessions(value);
+                      }
+                    },
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              const Text(
-                'اضغط على الزر لإنشاء QR Code للمحاضرة',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+
+            // Session Selection
+            if (_selectedCourseId != null)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Select Session',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: _selectedSessionId,
+                      hint: const Text('Choose a session'),
+                      items: _sessions.map((session) {
+                        return DropdownMenuItem(
+                          value: session.id,
+                          child: Text(session.name),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedSessionId = value;
+                          _qrData = null;
+                        });
+                      },
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 40),
+
+            const SizedBox(height: 24),
+
+            // Generate QR Button
+            if (_selectedCourseId != null && _selectedSessionId != null && _qrData == null)
               ElevatedButton.icon(
                 icon: _isGeneratingQR
                     ? const SizedBox(
@@ -349,15 +454,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                   ),
                 )
-                    : const Icon(Icons.add),
-                label: Text(_isGeneratingQR ? 'جاري الإنشاء...' : 'إنشاء محاضرة'),
+                    : const Icon(Icons.qr_code),
+                label: Text(_isGeneratingQR ? 'Generating...' : 'Generate QR Code'),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 ),
-                onPressed: _isGeneratingQR ? null : _showCreateLectureSheet,
+                onPressed: _isGeneratingQR ? null : _generateQRCode,
               ),
-            ] else ...[
-              // Show QR Code
+
+            // Show QR Code
+            if (_qrData != null) ...[
+              const SizedBox(height: 24),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -368,195 +475,40 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   children: [
                     const Text(
-                      'QR Code للحضور',
+                      'QR Code for Attendance',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 16),
-                    if (_qrData != null)
-                      QrImageView(
-                        data: _qrData!,
-                        version: QrVersions.auto,
-                        size: 250.0,
-                      )
-                    else
-                      Container(
-                        height: 250,
-                        width: 250,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Center(
-                          child: Text('QR CODE'),
-                        ),
-                      ),
+                    QrImageView(
+                      data: _qrData!,
+                      version: QrVersions.auto,
+                      size: 250.0,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Students can scan this code to mark attendance',
+                      style: TextStyle(color: Colors.grey[600]),
+                      textAlign: TextAlign.center,
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: _endLecture,
+                onPressed: () {
+                  setState(() {
+                    _qrData = null;
+                  });
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red,
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                 ),
-                child: const Text('إنهاء المحاضرة'),
+                child: const Text('Clear QR Code'),
               ),
             ],
           ],
         ),
-      ),
-    );
-  }
-
-  void _showCreateLectureSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(ctx).viewInsets.bottom,
-                top: 16,
-                left: 16,
-                right: 16,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'إنشاء محاضرة جديدة',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _lectureNameController,
-                      decoration: const InputDecoration(
-                        hintText: 'اسم المحاضرة',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    InkWell(
-                      onTap: () async {
-                        final picked = await showTimePicker(
-                          context: ctx,
-                          initialTime: TimeOfDay.now(),
-                        );
-                        if (picked != null) {
-                          setModalState(() {
-                            _selectedTime = picked;
-                          });
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 14),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.access_time),
-                            const SizedBox(width: 8),
-                            Text(
-                              _selectedTime == null
-                                  ? 'اختر وقت انتهاء المحاضرة'
-                                  : _selectedTime!.format(ctx),
-                              style: TextStyle(
-                                color: _selectedTime == null
-                                    ? Colors.grey
-                                    : Colors.black,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: _selectedYear,
-                      items: const [
-                        DropdownMenuItem(value: '1', child: Text('السنة الأولى')),
-                        DropdownMenuItem(value: '2', child: Text('السنة الثانية')),
-                        DropdownMenuItem(value: '3', child: Text('السنة الثالثة')),
-                        DropdownMenuItem(value: '4', child: Text('السنة الرابعة')),
-                      ],
-                      onChanged: (val) {
-                        setModalState(() {
-                          _selectedYear = val ?? '1';
-                        });
-                      },
-                      decoration: const InputDecoration(
-                        filled: true,
-                        hintText: 'اختر السنة',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _lectureSpecialtyController,
-                      decoration: const InputDecoration(
-                        hintText: 'التخصص',
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _generateQRCode();
-                      },
-                      child: const Text('إنشاء QR Code'),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _endLecture() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('إنهاء المحاضرة'),
-        content: const Text('هل أنت متأكد من إنهاء المحاضرة؟'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('إلغاء'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              setState(() {
-                _lectureCreated = false;
-                _qrData = null;
-                _lectureNameController.clear();
-                _lectureSpecialtyController.clear();
-                _selectedTime = null;
-                _selectedYear = '1';
-              });
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('تم إنهاء المحاضرة بنجاح'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            },
-            child: const Text('إنهاء'),
-          ),
-        ],
       ),
     );
   }

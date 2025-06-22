@@ -5,8 +5,6 @@ class User {
   final String role; // 'student' or 'teacher'
   final String? phone;
   final String? department;
-  final String? studentId;
-  final String? teacherId;
 
   User({
     required this.id,
@@ -15,8 +13,6 @@ class User {
     required this.role,
     this.phone,
     this.department,
-    this.studentId,
-    this.teacherId,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -27,8 +23,6 @@ class User {
       role: json['role'] ?? '',
       phone: json['phone'],
       department: json['department'],
-      studentId: json['student_id'],
-      teacherId: json['teacher_id'],
     );
   }
 
@@ -40,8 +34,6 @@ class User {
       'role': role,
       'phone': phone,
       'department': department,
-      'student_id': studentId,
-      'teacher_id': teacherId,
     };
   }
 }
@@ -50,21 +42,19 @@ class Course {
   final String id;
   final String name;
   final String code;
-  final String description;
-  final String teacherId;
-  final String teacherName;
-  final int creditHours;
-  final List<String> enrolledStudents;
+  final String? description;
+  final String? teacherId;
+  final String? teacherName;
+  final int? creditHours;
 
   Course({
     required this.id,
     required this.name,
     required this.code,
-    required this.description,
-    required this.teacherId,
-    required this.teacherName,
-    required this.creditHours,
-    required this.enrolledStudents,
+    this.description,
+    this.teacherId,
+    this.teacherName,
+    this.creditHours,
   });
 
   factory Course.fromJson(Map<String, dynamic> json) {
@@ -72,11 +62,10 @@ class Course {
       id: json['id']?.toString() ?? '',
       name: json['name'] ?? '',
       code: json['code'] ?? '',
-      description: json['description'] ?? '',
-      teacherId: json['teacher_id']?.toString() ?? '',
-      teacherName: json['teacher_name'] ?? '',
-      creditHours: json['credit_hours'] ?? 0,
-      enrolledStudents: List<String>.from(json['enrolled_students'] ?? []),
+      description: json['description'],
+      teacherId: json['teacher_id']?.toString(),
+      teacherName: json['teacher_name'],
+      creditHours: json['credit_hours'],
     );
   }
 
@@ -89,15 +78,12 @@ class Course {
       'teacher_id': teacherId,
       'teacher_name': teacherName,
       'credit_hours': creditHours,
-      'enrolled_students': enrolledStudents,
     };
   }
 }
 
 class AttendanceRecord {
   final String id;
-  final String studentId;
-  final String studentName;
   final String courseId;
   final String courseName;
   final DateTime date;
@@ -106,8 +92,6 @@ class AttendanceRecord {
 
   AttendanceRecord({
     required this.id,
-    required this.studentId,
-    required this.studentName,
     required this.courseId,
     required this.courseName,
     required this.date,
@@ -118,8 +102,6 @@ class AttendanceRecord {
   factory AttendanceRecord.fromJson(Map<String, dynamic> json) {
     return AttendanceRecord(
       id: json['id']?.toString() ?? '',
-      studentId: json['student_id']?.toString() ?? '',
-      studentName: json['student_name'] ?? '',
       courseId: json['course_id']?.toString() ?? '',
       courseName: json['course_name'] ?? '',
       date: DateTime.parse(json['date']),
@@ -133,8 +115,6 @@ class AttendanceRecord {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'student_id': studentId,
-      'student_name': studentName,
       'course_id': courseId,
       'course_name': courseName,
       'date': date.toIso8601String(),
@@ -171,7 +151,7 @@ class ChatMessage {
       senderName: json['sender_name'] ?? '',
       senderRole: json['sender_role'] ?? '',
       message: json['message'] ?? '',
-      timestamp: DateTime.parse(json['timestamp']),
+      timestamp: DateTime.parse(json['timestamp'] ?? json['created_at'] ?? DateTime.now().toIso8601String()),
     );
   }
 
@@ -188,46 +168,78 @@ class ChatMessage {
   }
 }
 
-class QRAttendance {
+class Session {
   final String id;
-  final String courseId;
-  final String courseName;
-  final String qrData;
-  final DateTime generatedAt;
-  final DateTime expiresAt;
-  final bool isActive;
+  final String name;
+  final DateTime date;
 
-  QRAttendance({
+  Session({
     required this.id,
-    required this.courseId,
-    required this.courseName,
-    required this.qrData,
-    required this.generatedAt,
-    required this.expiresAt,
-    required this.isActive,
+    required this.name,
+    required this.date,
   });
 
-  factory QRAttendance.fromJson(Map<String, dynamic> json) {
-    return QRAttendance(
+  factory Session.fromJson(Map<String, dynamic> json) {
+    return Session(
       id: json['id']?.toString() ?? '',
-      courseId: json['course_id']?.toString() ?? '',
-      courseName: json['course_name'] ?? '',
-      qrData: json['qr_data'] ?? '',
-      generatedAt: DateTime.parse(json['generated_at']),
-      expiresAt: DateTime.parse(json['expires_at']),
-      isActive: json['is_active'] ?? false,
+      name: json['name'] ?? '',
+      date: DateTime.parse(json['date'] ?? DateTime.now().toIso8601String()),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'course_id': courseId,
+      'name': name,
+      'date': date.toIso8601String(),
+    };
+  }
+}
+
+class Grade {
+  final String courseName;
+  final double? final_;
+  final double? yearWork;
+  final double? practical;
+  final double? oral;
+  final double? midTerm;
+  final double? total;
+  final String? grade;
+
+  Grade({
+    required this.courseName,
+    this.final_,
+    this.yearWork,
+    this.practical,
+    this.oral,
+    this.midTerm,
+    this.total,
+    this.grade,
+  });
+
+  factory Grade.fromJson(Map<String, dynamic> json) {
+    return Grade(
+      courseName: json['course_name'] ?? '',
+      final_: json['final']?.toDouble(),
+      yearWork: json['year_work']?.toDouble(),
+      practical: json['practical']?.toDouble(),
+      oral: json['oral']?.toDouble(),
+      midTerm: json['mid_term']?.toDouble(),
+      total: json['total']?.toDouble(),
+      grade: json['grade'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
       'course_name': courseName,
-      'qr_data': qrData,
-      'generated_at': generatedAt.toIso8601String(),
-      'expires_at': expiresAt.toIso8601String(),
-      'is_active': isActive,
+      'final': final_,
+      'year_work': yearWork,
+      'practical': practical,
+      'oral': oral,
+      'mid_term': midTerm,
+      'total': total,
+      'grade': grade,
     };
   }
 }
