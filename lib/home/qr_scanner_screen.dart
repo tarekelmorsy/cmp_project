@@ -771,8 +771,8 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       // In real scenario, you might need to fetch lecture details first
       final attendanceData = {
         'course_id': 1, // You might need to get this from lecture details
-        'lecture_id': int.parse(lectureId),
-        'student_id': int.parse(studentId ?? '6'),
+        'lecture_id': 1,
+        'student_id': int.parse('2'),
         'present': true,
       };
 

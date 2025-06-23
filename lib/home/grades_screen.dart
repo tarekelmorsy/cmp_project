@@ -57,12 +57,12 @@ class _GradesScreenState extends State<GradesScreen> {
         await _loadGradesForCourses();
       } else {
         setState(() {
-          _errorMessage = result['message'] ?? 'فشل في تحميل المواد';
+          _errorMessage = result['message'] ?? 'Failed to load courses';
         });
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'خطأ في تحميل البيانات: $e';
+        _errorMessage = 'Error loading data: $e';
       });
 
       // Load dummy data as fallback
@@ -137,7 +137,8 @@ class _GradesScreenState extends State<GradesScreen> {
 
     setState(() {
       for (var subject in subjects) {
-        _courseGrades[subject["subject"]] = List<Map<String, dynamic>>.from(subject["exams"]);
+        _courseGrades[subject["subject"]] =
+        List<Map<String, dynamic>>.from(subject["exams"]);
       }
     });
   }
@@ -168,7 +169,7 @@ class _GradesScreenState extends State<GradesScreen> {
                       const Icon(Icons.school, color: Colors.white, size: 28),
                       const SizedBox(width: 12),
                       const Text(
-                        'درجاتي',
+                        'My Grades',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -177,24 +178,7 @@ class _GradesScreenState extends State<GradesScreen> {
                       ),
                       if (authProvider.isOfflineMode) ...[
                         const SizedBox(width: 8),
-                        // Container(
-                        //   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        //   decoration: BoxDecoration(
-                        //     color: Colors.orange,
-                        //     borderRadius: BorderRadius.circular(12),
-                        //   ),
-                        //   child: const Row(
-                        //     mainAxisSize: MainAxisSize.min,
-                        //     children: [
-                        //       Icon(Icons.wifi_off, size: 12, color: Colors.white),
-                        //       SizedBox(width: 4),
-                        //       Text(
-                        //         'محلي',
-                        //         style: TextStyle(fontSize: 10, color: Colors.white),
-                        //       ),
-                        //     ],
-                        //   ),
-                        // ),
+                        // Offline badge (commented out for now)
                       ],
                       const Spacer(),
                       IconButton(
@@ -215,24 +199,30 @@ class _GradesScreenState extends State<GradesScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          authProvider.isOfflineMode ? Icons.wifi_off : Icons.error,
+                          authProvider.isOfflineMode
+                              ? Icons.wifi_off
+                              : Icons.error,
                           size: 60,
-                          color: authProvider.isOfflineMode ? Colors.orange : Colors.red,
+                          color: authProvider.isOfflineMode
+                              ? Colors.orange
+                              : Colors.red,
                         ),
                         const SizedBox(height: 16),
                         Text(
                           authProvider.isOfflineMode
-                              ? 'يتم تشغيل التطبيق في الوضع المحلي'
+                              ? 'The app is running in offline mode'
                               : _errorMessage!,
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: authProvider.isOfflineMode ? Colors.orange : Colors.red,
+                            color: authProvider.isOfflineMode
+                                ? Colors.orange
+                                : Colors.red,
                           ),
                         ),
                         const SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: _loadGrades,
-                          child: const Text('إعادة المحاولة'),
+                          child: const Text('Retry'),
                         ),
                       ],
                     ),
@@ -242,34 +232,42 @@ class _GradesScreenState extends State<GradesScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.grade, size: 60, color: Colors.grey),
+                        Icon(Icons.grade,
+                            size: 60, color: Colors.grey),
                         SizedBox(height: 16),
                         Text(
-                          'لا توجد درجات متاحة حالياً',
-                          style: TextStyle(color: Colors.grey, fontSize: 16),
+                          'No grades available at the moment',
+                          style: TextStyle(
+                              color: Colors.grey, fontSize: 16),
                         ),
                       ],
                     ),
                   )
                       : ListView.builder(
-
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 16),
                     itemCount: _courseGrades.length,
                     itemBuilder: (context, index) {
-                      final courseName = _courseGrades.keys.elementAt(index);
+                      final courseName =
+                      _courseGrades.keys.elementAt(index);
                       final grades = _courseGrades[courseName]!;
 
                       // Calculate total grade
-                      int totalScore = grades.fold(0, (sum, exam) => sum + (exam["score"] as int));
+                      int totalScore = grades.fold(
+                          0,
+                              (sum, exam) =>
+                          sum + (exam["score"] as int));
 
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
                         elevation: 2,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius:
+                          BorderRadius.circular(12),
                         ),
                         child: ListTile(
-                          contentPadding: const EdgeInsets.all(16),
+                          contentPadding:
+                          const EdgeInsets.all(16),
                           title: Text(
                             courseName,
                             style: const TextStyle(
@@ -278,30 +276,37 @@ class _GradesScreenState extends State<GradesScreen> {
                             ),
                           ),
                           subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment:
+                            CrossAxisAlignment.start,
                             children: [
                               const SizedBox(height: 8),
                               Row(
                                 children: [
-                                  const Text('المجموع: '),
+                                  const Text('Total: '),
                                   Text(
                                     '$totalScore',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      color: _getTotalGradeColor(totalScore),
+                                      color:
+                                      _getTotalGradeColor(
+                                          totalScore),
                                     ),
                                   ),
                                   const Spacer(),
                                   Text(
-                                    '${grades.length} امتحانات',
-                                    style: const TextStyle(color: Colors.grey),
+                                    '${grades.length} exams',
+                                    style: const TextStyle(
+                                        color: Colors.grey),
                                   ),
                                 ],
                               ),
                             ],
                           ),
-                          trailing: const Icon(Icons.arrow_drop_down),
-                          onTap: () => _showGradesBottomSheet(context, courseName, grades),
+                          trailing:
+                          const Icon(Icons.arrow_drop_down),
+                          onTap: () =>
+                              _showGradesBottomSheet(context,
+                                  courseName, grades),
                         ),
                       );
                     },
@@ -315,7 +320,8 @@ class _GradesScreenState extends State<GradesScreen> {
     );
   }
 
-  void _showGradesBottomSheet(BuildContext context, String courseName, List<Map<String, dynamic>> exams) {
+  void _showGradesBottomSheet(BuildContext context, String courseName,
+      List<Map<String, dynamic>> exams) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -323,7 +329,8 @@ class _GradesScreenState extends State<GradesScreen> {
       ),
       isScrollControlled: true,
       builder: (ctx) {
-        int totalScore = exams.fold(0, (sum, exam) => sum + (exam["score"] as int));
+        int totalScore =
+        exams.fold(0, (sum, exam) => sum + (exam["score"] as int));
 
         return Container(
           padding: EdgeInsets.only(
@@ -356,7 +363,7 @@ class _GradesScreenState extends State<GradesScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'المجموع الكلي: $totalScore',
+                      'Total score: $totalScore',
                       style: const TextStyle(
                         fontSize: 16,
                         color: Colors.white70,
@@ -394,7 +401,7 @@ class _GradesScreenState extends State<GradesScreen> {
                           Expanded(
                             flex: 2,
                             child: Text(
-                              _getExamNameInArabic(examName),
+                              _getExamNameEnglish(examName),
                               style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 14,
@@ -417,11 +424,13 @@ class _GradesScreenState extends State<GradesScreen> {
 
                           // Grade
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 4),
                             decoration: BoxDecoration(
                               color: _getGradeColor(grade).withOpacity(0.1),
                               borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: _getGradeColor(grade)),
+                              border:
+                              Border.all(color: _getGradeColor(grade)),
                             ),
                             child: Text(
                               grade,
@@ -446,7 +455,7 @@ class _GradesScreenState extends State<GradesScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('إغلاق'),
+                  child: const Text('Close'),
                 ),
               ),
             ],
@@ -456,27 +465,38 @@ class _GradesScreenState extends State<GradesScreen> {
     );
   }
 
-  String _getExamNameInArabic(String examName) {
+  String _getExamNameEnglish(String examName) {
     switch (examName.toLowerCase()) {
-      case 'final': return 'امتحان نهائي';
-      case 'yearwork': return 'أعمال السنة';
-      case 'practical': return 'عملي';
-      case 'oral': return 'شفوي';
-      case 'midterm': return 'منتصف الفصل';
-      default: return examName;
+      case 'final':
+        return 'Final Exam';
+      case 'yearwork':
+        return 'Year Work';
+      case 'practical':
+        return 'Practical';
+      case 'oral':
+        return 'Oral';
+      case 'midterm':
+        return 'Midterm';
+      default:
+        return examName;
     }
   }
 
   Color _getGradeColor(String grade) {
     switch (grade.toUpperCase()) {
       case 'A+':
-      case 'A': return Colors.green;
+      case 'A':
+        return Colors.green;
       case 'B+':
-      case 'B': return Colors.orange;
+      case 'B':
+        return Colors.orange;
       case 'C+':
-      case 'C': return Colors.red;
-      case 'F': return Colors.purple;
-      default: return Colors.blueGrey;
+      case 'C':
+        return Colors.red;
+      case 'F':
+        return Colors.purple;
+      default:
+        return Colors.blueGrey;
     }
   }
 
