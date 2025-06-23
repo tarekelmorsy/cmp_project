@@ -711,7 +711,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       final lectureNumber = DateTime.now().millisecondsSinceEpoch % 1000; // Generate unique number
 
       final response = await _apiService.createLecture({
-        'teacher_id': int.parse(teacherId ?? '1'),
+        'teacher_id': int.parse(teacherId ?? '2'),
         'course_id': int.parse(selectedCourseId!),
         'table_name': '${selectedCourseName}_$lectureNumber',
         'start_time': DateFormat('yyyy-MM-dd HH:mm:ss').format(startTime!),
@@ -772,7 +772,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       final attendanceData = {
         'course_id': 1, // You might need to get this from lecture details
         'lecture_id': int.parse(lectureId),
-        'student_id': int.parse(studentId ?? '2'),
+        'student_id': int.parse(studentId ?? '6'),
         'present': true,
       };
 

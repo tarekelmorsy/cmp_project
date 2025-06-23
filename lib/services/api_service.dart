@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const String baseUrl = 'https://cmp-production-47d0.up.railway.app/api';
+  static const String baseUrl = 'https://cmp-production-8bd9.up.railway.app/api';
   static const Duration timeoutDuration = Duration(seconds: 10);
 
   // Get stored token
